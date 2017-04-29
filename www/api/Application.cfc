@@ -25,7 +25,11 @@ component extends="taffy.core.api"{
 	public function onApplicationStart(){
 		super.onApplicationStart();
 		application.baseURL = "http#cgi.server_port eq 443 ? 's' : ''#://" & cgi.server_name;
-		
+		application.status_code = {
+			success: 200,
+			error: 401,
+			forbidden: 403
+		};
 		// Do conditional stuff for local dev
 		if( listLast( cgi.server_name, '.' ) == 'local' ){
 			//Local Development Server
@@ -57,8 +61,8 @@ component extends="taffy.core.api"{
 		}
 
 		// whitelist endpoints that don't require authentication
-		if( cfc == "loginController"
-			|| cfc == "testController"
+		if( cfc == "registerController"
+			//|| "anotherController"
 		){
 			return true;
 		}

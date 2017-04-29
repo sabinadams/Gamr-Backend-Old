@@ -1,11 +1,74 @@
 component accessors="true" {
 
 	//Role, Version, Access Level, Token Creation/Decryption stuff goes here in init() function
-
+	
 	public function register( required struct user ){
-		//Register Function
-		//Safely and validly create user. Then email a welcome message to user. 
-		//See AQConnect's register function for reference
+		try{
+			var newUser = new com.database.Norm( table="users", autowire = false, dao = application.dao);
+
+			if(!user.keyExists('email') || !newUser.loadByEmail( user.email ).isNew()){
+				return {
+					status: application.status_code.forbidden,
+					message: 'An account is already registered with that email.'
+				};
+			}
+
+			if(!user.keyExists('tag') || !newUser.loadByTag( user.tag ).isNew()){
+				return {
+					status: application.status_code.forbidden,
+					message: 'That tag is taken. Try another!'
+				};
+			}
+
+			if(!isValid("email", user.email)){
+				return {
+					status: application.status_code.forbidden,
+					message: "Please use a valid email address.", 
+				};
+			}
+
+			var hashedPass = hash(user.password);
+
+			if( user.keyExists('first_name') && len(trim(user.first_name))){
+				newUser.setFirst_Name( user.first_name );
+			} 
+			if( user.keyExists('last_name') && len(trim(user.last_name))){
+				newUser.setLast_Name( user.last_name );
+			}
+			if( user.keyExists('description') && len(trim(user.description)) ){
+				newUser.setDescription( user.description );
+			} 
+
+			newUser.setEmail( user.email );
+			newUser.setPassword( hashedPass ); //Salt?
+			newUser.setTag( user.tag );
+			newUser.setCreation_date( now() );
+			newUser.setDevice_token( user.token ); //Maybe token should be generated on server side?
+			newUser.save();
+
+			//Need to set up mail server
+
+			// var mailer = new mail();
+
+			// mailer.setTo( user.email );
+			// mailer.setFrom("gamr.com"); //Change this to an application level variable called application.supportEmail
+			// mailer.setSubject("Welcome to Gamr!");
+			// mailer.setType("html");
+			// //Create a better HTML email with a "Verify Email" feature. Maybe if your email isn't verified within a week your account will be deleted
+			// mailer.send(body: "<h2>Welcome to Gamr!</h2><p>Click here to verify your email address.</p><button>Verify</button>");
+
+			return {
+				status: application.status_code.success,
+				message: "Account created!",
+			};
+		} catch ( any e ) {
+			return {
+				status: application.status_code.error,
+				message: "There was a problem with the request. Please try again. If the problem persists please contact support at <EMAIL>",
+				error: e
+			};
+		}
+
 	}
 
 	public function authenticate( string email = "", string password = "", string token = "" ){
