@@ -25,6 +25,7 @@ component extends="taffy.core.api"{
 	public function onApplicationStart(){
 		super.onApplicationStart();
 		application.baseURL = "http#cgi.server_port eq 443 ? 's' : ''#://" & cgi.server_name;
+		application.supportEmail = "gamrwelcomebot.gmail.com";
 		application.status_code = {
 			success: 200,
 			error: 401,
@@ -62,7 +63,7 @@ component extends="taffy.core.api"{
 
 		// whitelist endpoints that don't require authentication
 		if( cfc == "registerController"
-			|| cfc == "testController"
+			|| cfc == "loginController"
 		){
 			return true;
 		}

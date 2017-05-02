@@ -1,6 +1,5 @@
 component accessors="true" {
-	
-	//Called by ../resources/registerController.cfc
+	// Called by ../resources/registerController.cfc
 	public function register( required struct user ){
 		try{
 			//Holds the ORM model for the users table
@@ -59,7 +58,7 @@ component accessors="true" {
 			//Need to set up mail server
 			var mailer = new mail();
 			mailer.setTo( user.email );
-			mailer.setFrom("gamr.com"); //Change this to an application level variable called application.supportEmail
+			mailer.setFrom("Gamr"); //Change this to an application level variable called application.supportEmail
 			mailer.setSubject("Welcome to Gamr!");
 			mailer.setType("html");
 			//Create a better HTML email with a "Verify Email" feature. Maybe if your email isn't verified within a week your account will be deleted
@@ -74,70 +73,51 @@ component accessors="true" {
 			//Upon any errors we didn't account for, return this message
 			return {
 				status: application.status_code.error,
-				message: "There was a problem with the request. Please try again. If the problem persists please contact support at <EMAIL>", //Need to add a real email address.
+				message: "There was a problem with the request. Please try again. If the problem persists please contact support at #application.supportEmail#", //Need to add a real email address.
 				error: e
 			};
 		}
-
 	}
 
+	// Handles authentication and login functionality
 	public function authenticate( string email = "", string password = "", string token = "" ){
-		// If a token was passed in, try to load the user associated with it.
+		// Authenticate a request by token
 		if( len( trim( token ) ) && token != "null" ){
 			var user = application.dao.read(
 				sql = "
-					SELECT
-						`ID`,
-					    `email`,
-					    `active`,
-					    `first_name`,
-					    `last_name`,
-					    `device_token`,
-					    1 as isLoggedIn,
-					    200 as statusCode
-					    FROM users
-						WHERE device_token = :token
-						AND active = 1
+					SELECT ID, email, description, first_name, last_name, tag, active, device_token, 1 as logged_in, 200 as statusCode
+					FROM users WHERE device_token = :token AND active = 1
 				",
 				params = { token: token },
 				returnType = "array"
 			);
 		}
-		if( !isDefined( 'user' ) || !user.len() ){ 
 
+		//Authenticates with a login
+		if( !isDefined( 'user' ) || !user.len() ){ 
 			var user = application.dao.read(
 				sql = "
-					SELECT
-						`ID`,
-					    `email`,
-					    `active`,
-					    `first_name`,
-					    `last_name`,
-					    `device_token`,
-					    1 as isLoggedIn,
-					    200 as statusCodes
-					    FROM users
-					WHERE email = :email
-					AND password = :password
-					AND active = 1
+					SELECT ID, email, description, first_name, last_name, tag, active, device_token, 1 as logged_in, 200 as statusCodes
+					FROM users WHERE email = :email AND password = :password AND active = 1
 				",
 				params = { email: email, password: hash( password ) },
 				returnType = "array"
 			);
 		}
 		
+		//Updates the user's token upon log in
 		if( user.len() ){
 			application.dao.execute(
-				sql = "UPDATE users SET device_token = :token, logged_in = 1 WHERE ID = :userId",
-				params = { token:token, userId:user[ 1 ].id, currtime: now() }
+				sql = "UPDATE users SET device_token = :token, logged_in = 1 WHERE ID = :id",
+				params = { token:token, id:user[ 1 ].id, currtime: now() }
 			);
 			// send back the new token to match the client's
 			user[ 1 ].device_token = token;
 
-			return { "user": user[ 1 ], "success": true };
+			return { user: user[ 1 ]};
 		}
 
-		return { "user": { "isLoggedIn": 0, "status": "Login Failed", "statusCode": 401, "message": "Not authorized to access requested page.  Please log in and try again." }, "success": false, "status": 401 };
+		return { user: {logged_in: false}};
 	}
 
 }
