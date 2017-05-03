@@ -25,7 +25,7 @@ component extends="taffy.core.api"{
 	public function onApplicationStart(){
 		super.onApplicationStart();
 		application.baseURL = "http#cgi.server_port eq 443 ? 's' : ''#://" & cgi.server_name;
-		application.supportEmail = "gamrwelcomebot.gmail.com";
+		application.supportEmail = "gamrwelcomebot@gmail.com";
 		application.status_code = {
 			success: 200,
 			error: 401,
@@ -58,19 +58,20 @@ component extends="taffy.core.api"{
 
 		// Stop here if its Preflighted OPTIONS request
 		if( verb == "OPTIONS" ){
-			return noData().withStatus( 200, "OK" );
+			return noData().withStatus( application.status_code.success, "OK" );
 		}
 
 		// whitelist endpoints that don't require authentication
 		if( cfc == "registerController"
 			|| cfc == "loginController"
+			// || cfc == "testController"
 		){
 			return true;
 		}
 		
 		//If an authorization token was not sent, stop and send an Authentication error
         if( !structKeyExists( requestArguments, "token" ) ){
-            return noData().withStatus( 401, "Not Authenticated" );
+            return noData().withStatus( application.status_code.error, "Not Authenticated" );
         }
 
         //Look for a user with the provided token
@@ -87,12 +88,11 @@ component extends="taffy.core.api"{
 
         // Grab the user's MetaData using the token
         var userMetadata = application.auth.authenticate( token = requestArguments.token ).user;
-        requestArguments['user'] = userMetadata;
-
+        request.user = userMetaData;
         //Check the metadata for valid login flag. If the user is not logged in, 
         //return the error details stored in the metadata variable
-	    if( !userMetadata.isLoggedIn ){
-	    	return representationOf(userMetadata).withStatus( 403 );
+	    if( !userMetadata.logged_in ){
+	    	return representationOf(userMetadata).withStatus( application.status_code.forbidden );
 	    }
 
 	    //If all checked out, allow the user to access the resource
