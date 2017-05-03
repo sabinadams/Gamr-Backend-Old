@@ -151,8 +151,8 @@ component accessors="true" {
 		if( !application._session.isNew() ){
 			//Find a user with an ID matching the token session's User_ID
 			application.getUser.loadByID( application._session.getUser_id() );
-			//If there was a matching user
-			if( !application.getUser.isNew() ) {
+			//If there was a matching user who is active
+			if( !application.getUser.isNew() && application.getUser.getActive()) {
 				//Update the user's timestamp
 				application.getUser.setTimestamp( now() );
 				//Set the logged in status to logged in
