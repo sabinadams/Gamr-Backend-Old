@@ -31,6 +31,7 @@ component extends="taffy.core.api"{
 			error: 401,
 			forbidden: 403
 		};
+
 		// Do conditional stuff for local dev
 		if( listLast( cgi.server_name, '.' ) == 'local' ){
 			//Local Development Server
@@ -40,6 +41,8 @@ component extends="taffy.core.api"{
 
 		application.dao = new com.database.dao( dbtype = "mysql", dsn = "gamr" );
 		application.auth = new services.authService();
+		application._session = new com.database.Norm( table="sessions", autowire = false, dao = application.dao );
+		application.getUser = new com.database.Norm( table="users", autowire = false, dao = application.dao );
 	}
 
 	public function onRequestStart(){
@@ -74,23 +77,13 @@ component extends="taffy.core.api"{
             return noData().withStatus( application.status_code.error, "Not Authenticated" );
         }
 
-        //Look for a user with the provided token
-        var user = new com.database.Norm( table = "users", autowire = false, dao = application.dao );
-		user.loadByDevice_Token( requestArguments['token'] );
-
-		//If a user with that token exists, update their timestamp
-		if(!user.isNew()){
-			application.dao.execute(
-				sql = "UPDATE users SET timestamp = :currtime{type='timestamp'} WHERE device_token = :token",
-				params = { token: requestArguments['token'], currtime: now() }
-			);	
-		}
-
         // Grab the user's MetaData using the token
         var userMetadata = application.auth.authenticate( token = requestArguments.token ).user;
         request.user = userMetaData;
+
         //Check the metadata for valid login flag. If the user is not logged in, 
         //return the error details stored in the metadata variable
+        
 	    if( !userMetadata.logged_in ){
 	    	return representationOf(userMetadata).withStatus( application.status_code.forbidden );
 	    }

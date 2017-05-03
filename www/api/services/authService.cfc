@@ -79,45 +79,106 @@ component accessors="true" {
 		}
 	}
 
-	// Handles authentication and login functionality
-	public function authenticate( string email = "", string password = "", string token = "" ){
-		// Authenticate a request by token
-		if( len( trim( token ) ) && token != "null" ){
-			var user = application.dao.read(
-				sql = "
-					SELECT ID, email, description, first_name, last_name, tag, active, device_token, 1 as logged_in, 200 as statusCode
-					FROM users WHERE device_token = :token AND active = 1
-				",
-				params = { token: token },
-				returnType = "array"
-			);
-		}
+	
+	public function login( string email = "", string password = "", string token = "" ) {
+		//Make sure the user inputted an email and password. Also makes sure a token was sent for validation
+		if( email.len() && password.len() && token.len() ){
+			//Makes sure there is a user with the supplied email and password
+			application.getUser.loadByEmailAndPassword( email, hash( password ) );
 
-		//Authenticates with a login
-		if( !isDefined( 'user' ) || !user.len() ){ 
-			var user = application.dao.read(
-				sql = "
-					SELECT ID, email, description, first_name, last_name, tag, active, device_token, 1 as logged_in, 200 as statusCodes
-					FROM users WHERE email = :email AND password = :password AND active = 1
-				",
-				params = { email: email, password: hash( password ) },
-				returnType = "array"
-			);
-		}
-		
-		//Updates the user's token upon log in
-		if( user.len() ){
-			application.dao.execute(
-				sql = "UPDATE users SET device_token = :token, logged_in = 1 WHERE ID = :id",
-				params = { token:token, id:user[ 1 ].id, currtime: now() }
-			);
-			// send back the new token to match the client's
-			user[ 1 ].device_token = token;
+			//If the user exists and they are active
+			if( !application.getUser.isNew() && application.getUser.getActive() ){
+				//Check to see if there is a session with the provided token
+				application._session.loadByTokenAndUser_id( token, application.getUser.getID() );
 
-			return { user: user[ 1 ]};
-		}
+				//If the session does not exist create a new token session
+				if( !application._session.isNew() ){
+					//Set the timestamp of the session
+					//The Token and User_ID are already set from when we tried to load the token
+					application._session.setTimestamp( now() );
+					application._session.save();
+					//Update the user's timestamp
+					application.getUser.setTimestamp( now() );
+					application.getUser.save();
+					//Return the user object
+					return {
+						user: {
+							'ID': application.getUser.getID(),
+							'email': application.getUser.getEmail(),
+							'description': application.getUser.getDescription(),
+							'first_name': application.getUser.getFirst_name(),
+							'last_name': application.getUser.getLast_name(),
+							'tag': application.getUser.getTag(),
+							'active': application.getUser.getActive(),
+							'token': token,
+							'message': "Used existing token",
+							'logged_in': 1
+						}
+					};
 
-		return { user: {logged_in: false}};
+				//If the session did exist
+				} else {
+					//Update the token's timestamp
+					application._session.setTimestamp( now() );
+					application._session.save();
+					//Return the user object
+					return {
+						user: {
+							'ID': application.getUser.getID(),
+							'email': application.getUser.getEmail(),
+							'description': application.getUser.getDescription(),
+							'first_name': application.getUser.getFirst_name(),
+							'last_name': application.getUser.getLast_name(),
+							'tag': application.getUser.getTag(),
+							'active': application.getUser.getActive(),
+							'token': token,
+							'message': "New token generated",
+							'logged_in': 1
+						}
+					};
+				}
+			}
+		}
+		//If none of the above were successful, the login was not a success
+		return { user: { logged_in: false } }; 	
 	}
 
+	//Authenticates all protected requests to the server
+	public function authenticate( string token = "" ){
+		//Tries to load a token session with the provided token
+		application._session.loadByToken(token);
+		//If there is a valid token session
+		if( !application._session.isNew() ){
+			//Find a user with an ID matching the token session's User_ID
+			application.getUser.loadByID( application._session.getUser_id() );
+			//If there was a matching user
+			if( !application.getUser.isNew() ) {
+				//Update the user's timestamp
+				application.getUser.setTimestamp( now() );
+				//Set the logged in status to logged in
+				application.getUser.setLogged_in( 1 );
+				application.getUser.save();
+				//Update the token's timestamp
+				application._session.setTimestamp( now() );
+				application._session.save();
+				//Return a user object so it can be placed in a request level variable for future reference
+				return {
+					user: {
+						'ID': application.getUser.getID(),
+						'email': application.getUser.getEmail(),
+						'description': application.getUser.getDescription(),
+						'first_name': application.getUser.getFirst_name(),
+						'last_name': application.getUser.getLast_name(),
+						'tag': application.getUser.getTag(),
+						'active': application.getUser.getActive(),
+						'token': token,
+						'logged_in': 1
+					}
+				};
+			}
+		}
+
+		//If no valid session was found, the user is not logged in
+		return { user: { logged_in: false } };
+	}
 }
