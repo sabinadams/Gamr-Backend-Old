@@ -2,8 +2,6 @@ component accessors="true" {
 	// Called by ../resources/registerController.cfc
 	public function register( required struct user ){
 		try{
-			//Holds the ORM model for the users table
-
 			//Make sure the user supplied an email and that a user does not already exist with that email
 			if(!user.keyExists('email') || !application._user.loadByEmail( user.email ).isNew()){
 				//Return error message if a user already has that email
@@ -32,7 +30,8 @@ component accessors="true" {
 			}
 
 			//Hashes the supplied password
-			var hashedPass = hash(user.password);
+			var salt = hash( generateSecretKey("AES"), "SHA-512" );
+			var hashedPass = hash( user.password & salt, "SHA-512" );
 
 			//If a first name was provided, set the first_name column for this user record
 			if( user.keyExists('first_name') && len(trim(user.first_name))){
@@ -48,6 +47,7 @@ component accessors="true" {
 			} 
 
 			//Sets all the other provided values. These aren't checked because they are required fields
+			application._user.setSalt( salt );
 			application._user.setEmail( user.email );
 			application._user.setPassword( hashedPass ); //Salt?
 			application._user.setCreation_date( now() ); //now() gives a timestamp
@@ -82,10 +82,13 @@ component accessors="true" {
 		//Make sure the user inputted an email and password. Also makes sure a token was sent for validation
 		if( email.len() && password.len() && token.len() ){
 			//Makes sure there is a user with the supplied email and password
-			application._user.loadByEmailAndPassword( email, hash( password ) );
-
+			application._user.loadByEmail( email );
+			var salt = application._user.getSalt();
 			//If the user exists and they are active
-			if( !application._user.isNew() && application._user.getActive() ){
+			if( !application._user.isNew() 
+				&& application._user.getActive() 
+				&& application._user.getPassword() == hash( password & salt, "SHA-512" )
+			){
 				//Check to see if there is a session with the provided token
 				application._session.loadByTokenAndUser_id( token, application._user.getID() );
 
@@ -154,7 +157,6 @@ component accessors="true" {
 				//Update the user's timestamp
 				application._user.setTimestamp( now() );
 				//Set the logged in status to logged in
-				application._user.setLogged_in( 1 );
 				application._user.save();
 				//Update the token's timestamp
 				application._session.setTimestamp( now() );
