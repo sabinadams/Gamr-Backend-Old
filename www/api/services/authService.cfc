@@ -29,6 +29,18 @@ component accessors="true" {
 				};
 			}
 
+			if(!user.tag.len()){
+				return {
+					status: application.status_code.forbidden,
+					message: 'Please input a tag.'
+				};
+			}
+			if( !user.password.len()) {
+				return {
+					status: application.status_code.forbidden,
+					message: 'Please provide a password.'
+				};
+			}
 			//Hashes the supplied password
 			var salt = hash( generateSecretKey("AES"), "SHA-512" );
 			var hashedPass = hash( user.password & salt, "SHA-512" );
@@ -49,10 +61,12 @@ component accessors="true" {
 			//Sets all the other provided values. These aren't checked because they are required fields
 			application._user.setSalt( salt );
 			application._user.setEmail( user.email );
+			application._user.setTag( user.tag );
 			application._user.setPassword( hashedPass ); //Salt?
 			application._user.setCreation_date( now() ); //now() gives a timestamp
 			application._user.save();
-
+			application._session.loadByTokenAndUser_idAndTimestamp( user.token, application._user.getID(), now() );
+			application._session.save();
 			//Need to set up mail server
 			var mailer = new mail();
 			mailer.setTo( user.email );
@@ -66,6 +80,17 @@ component accessors="true" {
 			return {
 				status: application.status_code.success,
 				message: "Account created!",
+				user: {
+					'ID': application._user.getID(),
+					'email': user.email,
+					'description': user.description,
+					'first_name': user.first_name,
+					'last_name': user.last_name,
+					'tag': user.tag,
+					'active': application._user.getActive(),
+					'token': user.token,
+					'logged_in': 1
+				}
 			};
 		} catch ( any e ) {
 			//Upon any errors we didn't account for, return this message

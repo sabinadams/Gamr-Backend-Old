@@ -67,7 +67,6 @@ component extends="taffy.core.api"{
 		// whitelist endpoints that don't require authentication
 		if( cfc == "registerController"
 			|| cfc == "loginController"
-			// || cfc == "testController"
 		){
 			return true;
 		}
