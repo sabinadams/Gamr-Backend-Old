@@ -1,4 +1,4 @@
-component extends = "taffy.core.resource" taffy_uri="/email/{tag}/"{
+component extends = "taffy.core.resource" taffy_uri="/tagcheck/{tag}/"{
 
 	function get( tag = "" ){
 

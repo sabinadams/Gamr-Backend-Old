@@ -29,18 +29,31 @@ component accessors="true" {
 				};
 			}
 
+
+			//Make sure the tag has no spaces (is checked on the client but if someone bypasses client, this will prevent spaces)
+			if( findNoCase(" ", user.tag, 0) ) {
+				return {
+					status: application.status_code.forbidden,
+					message: 'Tags cannot contain spaces.'
+				};
+			}
+
+			//Make sure there was actually a tag
 			if(!user.tag.len()){
 				return {
 					status: application.status_code.forbidden,
 					message: 'Please input a tag.'
 				};
 			}
+
+			//Make sure there is a password
 			if( !user.password.len()) {
 				return {
 					status: application.status_code.forbidden,
 					message: 'Please provide a password.'
 				};
 			}
+
 			//Hashes the supplied password
 			var salt = hash( generateSecretKey("AES"), "SHA-512" );
 			var hashedPass = hash( user.password & salt, "SHA-512" );
@@ -67,6 +80,7 @@ component accessors="true" {
 			application._user.save();
 			application._session.loadByTokenAndUser_idAndTimestamp( user.token, application._user.getID(), now() );
 			application._session.save();
+
 			//Need to set up mail server
 			var mailer = new mail();
 			mailer.setTo( user.email );
