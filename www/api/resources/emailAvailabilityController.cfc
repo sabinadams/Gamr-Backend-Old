@@ -1,6 +1,6 @@
-component extends = "taffy.core.resource" taffy_uri="/emailcheck/{email}/"{
+component extends = "taffy.core.resource" taffy_uri="/emailcheck/"{
 
-	function get( email = "" ){
+	function post( email = "" ){
 
 		return representationOf( {'available': application._user.loadByEmail( email ).isNew()} );
 
