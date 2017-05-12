@@ -28,8 +28,8 @@ component accessors="true" {
 		//Save post data and link to user
 		var postID = application.dao.insert( table = 'posts', data = post );
 		post['ID'] = postID;
+
 		//Check for images (<7)
-			//Save images and link them to post and user 
 		if( arrayLen(post.images) < 7 ){
 			for( image in data.images ) {
 				var imageID = application.dao.insert( table = 'images', data = { url: image } );
@@ -39,7 +39,6 @@ component accessors="true" {
 		}
 		
 		//Check for video (1)
-			//Save video and link to post/user
 		if( post.video.len() > 0 ){
 			var videoID = application.dao.insert( table = 'videos', data = { url: data.video } );
 			application.dao.insert( table="users_to_videos", data = {user_ID: request.user.id, video_ID: videoID});
@@ -57,7 +56,6 @@ component accessors="true" {
 
 		//Deal with experience stuff
 
-		//Return post data
 		return {
 			status: application.status_code.success,
 			message: "Post saved!",

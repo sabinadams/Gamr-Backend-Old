@@ -3,7 +3,7 @@ component extends = "taffy.core.resource" taffy_uri="/savepost/"{
 
 	//Handle POST requests, should accept a user object
 	function post( data ){
-		var _postSvc = new services.postingService(); 
+		var _postSvc = new services.postService(); 
 		return representationOf( _postSvc.savePost( data = data ) );
 	}
 
