@@ -41,8 +41,7 @@ component extends="taffy.core.api"{
 
 		application.dao = new com.database.dao( dbtype = "mysql", dsn = "gamr" );
 		application.auth = new services.authService();
-		// application._session = new com.database.Norm( table="sessions", autowire = false, dao = application.dao );
-		// application._user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
+		application._user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
 
 	}
 

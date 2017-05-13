@@ -105,33 +105,74 @@ component accessors="true" {
 		}
 	}
 
-	public function deletePost( data ) {
-		
-		//Validate session/authenticity
+	public function deletePost( postID ) {
 
-		//Verify post belongs to you
+		var _post = new com.database.Norm( table="posts", autowire = false, dao = application.dao );
+		_post.loadByPost_idAndUser_id( postID, request.user.id );
 
-		//Delete post
-			//Delete images
-			//Delete videos
-			//Delete @mentions
-			//Delete notifications
-			//Delete subscriptions
-			//Delete Comments
+		if( !_post.isNew() ) {
+			var comments = application.dao.read(
+				sql="SELECT * FROM comments WHERE post_ID = :postID",
+				params = { postID: _post.getID() },
+				returnType = "array"
+			);
+
+			// for ( comment of comments ) {
+
+			// }
+
+			//Get Comments
+				//Delete comments
+					//Delete Images, comments 2 images
+					//Delete Videos, comments 2 videos
+				//Delete comment likes
+			//Delete Images, posts 2 images
+			//Delete Videos, posts 2 videos
+			//Delete post likes
+		}
+
+		//Delete @mentions
+		//Delete notifications
+		//Delete subscriptions
 
 	}
 
-	public function getPosts( data ) {
-		
-		//Verifies your session/authenticity
+	public function getPosts( index ) {
 
-		//Grabs a list of your friends' IDs
+		var follows = application.dao.read( 
+			sql="SELECT GROUP_CONCAT(followed_ID) as user FROM follows WHERE follower_ID = :userID",
+			params = { userID: request.user.id }
+		);
+		var idList = ListToArray(follows.user);
+    	arrayAppend(idList, val(request.user.id));
+
+	    var posts = application.dao.read(
+	        sql = "
+	        	SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
+	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images, 
+	        	GROUP_CONCAT(DISTINCT v.url) as video
+	        	FROM posts p
+	        	LEFT JOIN post_likes l on l.post_ID = p.id
+	        	LEFT JOIN users u on u.id = p.user_ID
+	        	LEFT JOIN users uoriginal on uoriginal.id = p.original_user
+	        	LEFT JOIN posts_to_images p2i on p2i.post_ID = p.id
+	        	LEFT JOIN images i on p2i.image_ID = i.id
+	        	LEFT JOIN posts_to_videos p2v on p2v.post_ID = p.id
+	        	LEFT JOIN videos v on p2v.video_ID = v.id
+	        	WHERE p.user_ID IN (:idList{list=true}) 
+	        	GROUP BY p.ID
+                ORDER BY p.timestamp DESC LIMIT :start{type='int'},20 
+	        ",
+	        params = {idList: idList, userID: request.user.id, start:index},
+	        returnType = "array" 
+	    );
+
 
 		//Grabs the most recent 20 posts starting from a given index that your friends have cumulatively made
 			//Images, Videos, Likes, @mentions as well
 
 		//getComments()
-
+		return posts;
 	}	
 
 	public function postPull( data ) {
@@ -144,48 +185,6 @@ component accessors="true" {
 
 		//getComments()
 
-	}
-
-	public function saveComment( data ) {
-
-		//Validate session/authenticity
-
-		//Makes sure the post the user is commenting on exists
-
-		//Saves the post
-
-		//Check for image (1)
-			//Save image
-
-		//Deal with @mentions
-
-		//Notify post subscribers
-
-		//Notify @mentioned people
-
-		//Notify post creator ? ^
-
-		//Notify other commenters ? ^^
-
-	}
-
-	public function likeComment( data ) {
-
-		//Validate session/authenticity
-
-		//Makes sure the comment exists
-
-		//Add like to the db
-
-		//Notify poster you liked their comment
-
-		/*
-			Notify any people subscribed to the post that someone liked a comment they are subscribed to
-			This includes people who manually subscribed, or people who have commented on the post
-		*/
-
-		//Notify any @mentioned people that someone liked a comment they were mentioned in
-		
 	}
 
 }

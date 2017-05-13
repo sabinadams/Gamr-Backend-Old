@@ -105,7 +105,8 @@ component accessors="true" {
 					'tag': user.tag,
 					'active': 0,
 					'token': user.token,
-					'logged_in': 1
+					'logged_in': 1,
+					'exp_count': 0
 				}
 			};
 		} catch ( any e ) {
@@ -154,6 +155,7 @@ component accessors="true" {
 							'last_name': _user.getLast_name(),
 							'tag': _user.getTag(),
 							'active': _user.getActive(),
+							'exp_count': _user.getExp_count(),
 							'token': token,
 							'message': "Used existing token",
 							'logged_in': 1
@@ -175,6 +177,7 @@ component accessors="true" {
 							'last_name': _user.getLast_name(),
 							'tag': _user.getTag(),
 							'active': _user.getActive(),
+							'exp_count': _user.getExp_count(),
 							'token': token,
 							'message': "New token generated",
 							'logged_in': 1
