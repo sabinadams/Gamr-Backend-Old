@@ -85,6 +85,7 @@ component accessors="true" {
 
 				return {
 					status: application.status_code.success,
+					liked: true,
 					message: "You liked the post."
 				}
 			} else {
@@ -94,6 +95,7 @@ component accessors="true" {
 				);
 				return {
 					status: application.status_code.success,
+					liked: false,
 					message: "You un-liked the post."
 				}
 			}
@@ -197,7 +199,7 @@ component accessors="true" {
 	    var posts = application.dao.read(
 	        sql = "
 	        	SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
-	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, COUNT(DISTINCT l.user_ID) as like_count, GROUP_CONCAT( DISTINCT i.url) as images,
+	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
 	        	COUNT(DISTINCT c.ID) as comment_count,
 	        	GROUP_CONCAT(DISTINCT v.url) as video
 	        	FROM posts p
@@ -211,13 +213,16 @@ component accessors="true" {
 	        	LEFT JOIN comments c on c.post_ID = p.id
 	        	WHERE p.user_ID IN (:idList{list=true}) 
 	        	GROUP BY p.ID
-                ORDER BY p.timestamp DESC LIMIT :start{type='int'},20 
+                ORDER BY p.timestamp DESC LIMIT :start{type='int'},10 
 	        ",
 	        params = {idList: idList, userID: request.user.id, start:index},
 	        returnType = "array" 
 	    );
 
 	    for( post in posts ) {
+	    	var likes = ListToArray(post.likes); 
+	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
+	    	post['likes'] = arrayLen( likes );  
 	    	//Get the comments
 	    	post['comments']  = [];
 	    }
