@@ -6,7 +6,7 @@ component accessors="true" {
 		//Returns any new posts
 
 	public function savePost( data ) {
-
+		// Should only have a video or images. Not both
 		var post = {
 			text: data.text,
 			user_ID: request.user.id,
@@ -58,8 +58,7 @@ component accessors="true" {
 
 		return {
 			status: application.status_code.success,
-			message: "Post saved!",
-			post: post
+			message: "Post saved!"
 		};
 	}
 
@@ -112,21 +111,6 @@ component accessors="true" {
 		_post.loadByPost_idAndUser_id( postID, request.user.id );
 
 		if( !_post.isNew() ) {
-			var comments = application.dao.read(
-				sql="SELECT * FROM comments WHERE post_ID = :postID",
-				params = { postID: _post.getID() },
-				returnType = "array"
-			);
-
-			// for ( comment of comments ) {
-					//commentService.deleteComment(comment.ID)
-					//Get Comments
-						//Delete comments
-							//Delete Images, comments 2 images
-							//Delete Videos, comments 2 videos
-						//Delete comment likes
-						//Delete Notifications
-			// }
 			var post_to_images = application.dao.read(
 				sql="SELECT * FROM posts_to_images WHERE post_ID = :postID",
 				params = { postID: _post.getID() },
@@ -179,6 +163,21 @@ component accessors="true" {
 				params = { postID: postID }
 			);
 
+			var comments = application.dao.read(
+				sql="SELECT * FROM comments WHERE post_ID = :postID",
+				params = { postID: _post.getID() },
+				returnType = "array"
+			);
+			// for ( comment of comments ) {
+					//commentService.deleteComment(comment.ID)
+					//Get Comments
+						//Delete comments
+							//Delete Images, comments 2 images
+							//Delete Videos, comments 2 videos
+						//Delete comment likes
+						//Delete Notifications
+			// }
+			
 			// Delete Notifications
 		}
 
@@ -198,7 +197,8 @@ component accessors="true" {
 	    var posts = application.dao.read(
 	        sql = "
 	        	SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
-	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images, 
+	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, COUNT(DISTINCT l.user_ID) as like_count, GROUP_CONCAT( DISTINCT i.url) as images,
+	        	COUNT(DISTINCT c.ID) as comment_count,
 	        	GROUP_CONCAT(DISTINCT v.url) as video
 	        	FROM posts p
 	        	LEFT JOIN post_likes l on l.post_ID = p.id
@@ -208,6 +208,7 @@ component accessors="true" {
 	        	LEFT JOIN images i on p2i.image_ID = i.id
 	        	LEFT JOIN posts_to_videos p2v on p2v.post_ID = p.id
 	        	LEFT JOIN videos v on p2v.video_ID = v.id
+	        	LEFT JOIN comments c on c.post_ID = p.id
 	        	WHERE p.user_ID IN (:idList{list=true}) 
 	        	GROUP BY p.ID
                 ORDER BY p.timestamp DESC LIMIT :start{type='int'},20 

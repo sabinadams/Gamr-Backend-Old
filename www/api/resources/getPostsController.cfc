@@ -4,7 +4,7 @@ component extends = "taffy.core.resource" taffy_uri="/posts/{index}/"{
 
 		var _postService = new services.postService();
 
-		return representationOf( _postService.getPosts( index ));
+		return representationOf( _postService.getPosts( index )).withStatus( 200 );
 
 	}
 
