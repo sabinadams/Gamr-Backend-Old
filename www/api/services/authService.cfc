@@ -79,6 +79,7 @@ component accessors="true" {
 			_user.setTag( user.tag );
 			_user.setPassword( hashedPass ); //Salt?
 			_user.setCreation_date( now() ); //now() gives a timestamp
+			_user.setDisplay_name( user.display_name );
 			_user.save();
 			_session.loadByTokenAndUser_idAndTimestamp( user.token, _user.getID(), now() );
 			_session.save();
@@ -105,6 +106,7 @@ component accessors="true" {
 					'tag': user.tag,
 					'active': 0,
 					'token': user.token,
+					'display_name': user.display_name,
 					'logged_in': 1,
 					'exp_count': 0
 				}
@@ -156,6 +158,7 @@ component accessors="true" {
 							'tag': _user.getTag(),
 							'active': _user.getActive(),
 							'exp_count': _user.getExp_count(),
+							'display_name': _user.getDisplay_name(),
 							'token': token,
 							'message': "Used existing token",
 							'logged_in': 1
@@ -178,6 +181,7 @@ component accessors="true" {
 							'tag': _user.getTag(),
 							'active': _user.getActive(),
 							'exp_count': _user.getExp_count(),
+							'display_name': _user.getDisplay_name(),
 							'token': token,
 							'message': "New token generated",
 							'logged_in': 1
@@ -219,6 +223,7 @@ component accessors="true" {
 						'last_name': _user.getLast_name(),
 						'tag': _user.getTag(),
 						'active': _user.getActive(),
+						'display_name': _user.getDisplay_name(),
 						'token': token,
 						'logged_in': 1
 					}

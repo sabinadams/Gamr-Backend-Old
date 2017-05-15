@@ -83,6 +83,7 @@ component accessors="true" {
 				//Notify any @mentioned people that someone liked a post they were mentioned in
 
 				//Deal with experience stuff
+
 				return {
 					status: application.status_code.success,
 					message: "You liked the post."
@@ -118,21 +119,69 @@ component accessors="true" {
 			);
 
 			// for ( comment of comments ) {
-
+					//commentService.deleteComment(comment.ID)
+					//Get Comments
+						//Delete comments
+							//Delete Images, comments 2 images
+							//Delete Videos, comments 2 videos
+						//Delete comment likes
+						//Delete Notifications
 			// }
+			var post_to_images = application.dao.read(
+				sql="SELECT * FROM posts_to_images WHERE post_ID = :postID",
+				params = { postID: _post.getID() },
+				returnType = "array"
+			);
 
-			//Get Comments
-				//Delete comments
-					//Delete Images, comments 2 images
-					//Delete Videos, comments 2 videos
-				//Delete comment likes
-			//Delete Images, posts 2 images
-			//Delete Videos, posts 2 videos
-			//Delete post likes
+			var post_to_videos = application.dao.read(
+				sql="SELECT * FROM posts_to_videos WHERE post_ID = :postID",
+				params = { postID: _post.getID() },
+				returnType = "array"
+			);
+
+			//Delete from these where id in array of IDs
+			for( image in post_to_images ) {
+				application.dao.execute(
+					sql="DELETE FROM images WHERE ID = :imageID",
+					params = { imageID: image.image_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM posts_to_images WHERE post_ID = :postID AND image_ID = :imageID",
+					params = { postID: postID, imageID: image.image_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM users_to_images WHERE user_ID = :userID AND image_ID = :imageID",
+					params = { userID: request.user.id, imageID: image.image_ID }
+				);
+			}
+			//Delete from these where id in array of IDs
+			for( video in post_to_videos ) {
+				application.dao.execute(
+					sql="DELETE FROM videos WHERE ID = :videoID",
+					params = { videoID: video.video_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM posts_to_videos WHERE video_ID = :videoID AND post_ID = :postID",
+					params = { postID: postID, videoID: video.video_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM users_to_videos WHERE video_ID = :videoID AND user_ID = :userID",
+					params = { userID: request.user.id, videoID: video.video_ID }
+				);
+			}
+
+			application.dao.execute(
+				sql="DELETE FROM post_likes WHERE post_ID = :postID",
+				params = { postID: postID }
+			);
+			application.dao.execute(
+				sql="DELETE FROM posts WHERE ID = :postID",
+				params = { postID: postID }
+			);
+
+			// Delete Notifications
 		}
 
-		//Delete @mentions
-		//Delete notifications
 		//Delete subscriptions
 
 	}
@@ -167,15 +216,22 @@ component accessors="true" {
 	        returnType = "array" 
 	    );
 
+	    for( post in posts ) {
+	    	//Get the comments
+	    	post['comments']  = [];
+	    }
 
 		//Grabs the most recent 20 posts starting from a given index that your friends have cumulatively made
 			//Images, Videos, Likes, @mentions as well
 
-		//getComments()
 		return posts;
 	}	
 
-	public function postPull( data ) {
+	public function sharePost( data ) {
+
+	}
+
+	public function postLongPull( data ) {
 
 		//Validate session/authenticity
 
