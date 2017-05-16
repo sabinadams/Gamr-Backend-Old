@@ -11,10 +11,11 @@ component accessors="true" {
 			text: data.text,
 			user_ID: request.user.id,
 			timestamp: now(),
+			post_date: now(),
 			original_user: request.user.id, //May need this for sharing
 			exp_count: 0,
 			images: data.keyExists( 'images' ) ? data.images : [] ,
-			video: data.keyExists( 'video' ) ? data.video : ''
+			video: data.keyExists( 'video' ) ? data.video : '',
 		};
 
 		//Check if the post data is correct (len < 601)
@@ -82,7 +83,8 @@ component accessors="true" {
 				//Notify any @mentioned people that someone liked a post they were mentioned in
 
 				//Deal with experience stuff
-
+				 _post.setTimestamp( now() );
+				 _post.save();
 				return {
 					status: application.status_code.success,
 					liked: true,
@@ -237,16 +239,51 @@ component accessors="true" {
 
 	}
 
-	public function postLongPull( data ) {
+	public function postLongPull( lastTimestamp ) {
+		var follows = application.dao.read( 
+			sql="SELECT GROUP_CONCAT(followed_ID) as user FROM follows WHERE follower_ID = :userID",
+			params = { userID: request.user.id }
+		);
+		var idList = ListToArray(follows.user);
+    	arrayAppend(idList, val(request.user.id));
 
-		//Validate session/authenticity
+    	 var posts = application.dao.read(
+	        sql = "
+	        	SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
+	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
+	        	COUNT(DISTINCT c.ID) as comment_count,
+	        	GROUP_CONCAT(DISTINCT v.url) as video
+	        	FROM posts p
+	        	LEFT JOIN post_likes l on l.post_ID = p.id
+	        	LEFT JOIN users u on u.id = p.user_ID
+	        	LEFT JOIN users uoriginal on uoriginal.id = p.original_user
+	        	LEFT JOIN posts_to_images p2i on p2i.post_ID = p.id
+	        	LEFT JOIN images i on p2i.image_ID = i.id
+	        	LEFT JOIN posts_to_videos p2v on p2v.post_ID = p.id
+	        	LEFT JOIN videos v on p2v.video_ID = v.id
+	        	LEFT JOIN comments c on c.post_ID = p.id
+	        	WHERE p.user_ID IN (:idList{list=true}) AND p.timestamp > :lastTimestamp
+	        	GROUP BY p.ID
+                ORDER BY p.timestamp DESC 
+	        ",
+	        params = {idList: idList, userID: request.user.id, lastTimestamp:lastTimestamp},
+	        returnType = "array" 
+	    );
 
+    	for( post in posts ) {
+	    	var likes = ListToArray(post.likes); 
+	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
+	    	post['likes'] = arrayLen( likes );  
+	    	//Get the comments
+	    	post['comments']  = [];
+	    }
 		//Gets your friends list
 
 		//Searches for all posts from your friends newer than a specified ID
 
 		//getComments()
 
+		return posts;
 	}
 
 }

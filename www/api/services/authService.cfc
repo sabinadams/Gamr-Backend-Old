@@ -108,6 +108,7 @@ component accessors="true" {
 					'token': user.token,
 					'display_name': user.display_name,
 					'profile_pic': 'http://placehold.it/200x200', //temporary
+					'level': 1,
 					'logged_in': 1,
 					'exp_count': 0
 				}
@@ -159,6 +160,7 @@ component accessors="true" {
 							'tag': _user.getTag(),
 							'active': _user.getActive(),
 							'exp_count': _user.getExp_count(),
+							'level': _user.getLevel(),
 							'display_name': _user.getDisplay_name(),
 							'profile_pic': _user.getProfile_pic(),
 							'token': token,
@@ -183,6 +185,7 @@ component accessors="true" {
 							'tag': _user.getTag(),
 							'active': _user.getActive(),
 							'exp_count': _user.getExp_count(),
+							'level': _user.getLevel(),
 							'display_name': _user.getDisplay_name(),
 							'profile_pic': _user.getProfile_pic(),
 							'token': token,
