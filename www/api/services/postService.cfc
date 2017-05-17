@@ -31,7 +31,7 @@ component accessors="true" {
 		post['ID'] = postID;
 
 		//Check for images (<7)
-		if( arrayLen(post.images) < 5 ){
+		if( arrayLen(post.images) < 7 ){
 			for( image in data.images ) {
 				var imageID = application.dao.insert( table = 'images', data = { url: image } );
 				application.dao.insert( table="users_to_images", data = {user_ID: request.user.id, image_ID: imageID});
@@ -224,7 +224,8 @@ component accessors="true" {
 	    for( post in posts ) {
 	    	var likes = ListToArray(post.likes); 
 	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
-	    	post['likes'] = arrayLen( likes );  
+	    	post['likes'] = arrayLen( likes );
+	    	post['images'] = ListToArray(post.images);
 	    	//Get the comments
 	    	post['comments']  = [];
 	    }
@@ -276,6 +277,7 @@ component accessors="true" {
 	    	post['likes'] = arrayLen( likes );  
 	    	//Get the comments
 	    	post['comments']  = [];
+	    	post['images'] = ListToArray(post.images);
 	    }
 		//Gets your friends list
 
