@@ -83,7 +83,6 @@ component accessors="true" {
 				//Notify any @mentioned people that someone liked a post they were mentioned in
 
 				//Deal with experience stuff
-				 _post.setTimestamp( now() );
 				 _post.save();
 				return {
 					status: application.status_code.success,
