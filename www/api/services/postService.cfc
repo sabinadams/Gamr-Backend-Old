@@ -228,7 +228,7 @@ component accessors="true" {
 	    	post['images'] = ListToArray(post.images);
 	    	//Get the comments
 	    	post['comments']  = [];
-	    	var mentions = REMatch('(@\w+)(\s|\Z)', post['text']);
+	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
 	    	for(mention in mentions){
 	    		_user.loadByTag( Mid(mention, 2, mention.len()) );
 	    		if(!_user.isNew()){
@@ -287,7 +287,7 @@ component accessors="true" {
 	    	//Get the comments
 	    	post['comments']  = [];
 	    	post['images'] = ListToArray(post.images);
-	    	var mentions = REMatch('(@\w+)(\s|\Z)', post['text']);
+	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
 	    	for(mention in mentions){
 	    		_user.loadByTag( Mid(mention, 2, mention.len()) );
 	    		if(!_user.isNew()){
