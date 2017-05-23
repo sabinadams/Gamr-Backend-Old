@@ -230,10 +230,12 @@ component accessors="true" {
 	    	post['comments']  = [];
 	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
 	    	for(mention in mentions){
-	    		_user.loadByTag( Mid(mention, 2, mention.len()) );
+	    		var link = Trim(mention);
+	    		_user.loadByTag( Mid(link, 2, link.len()));
 	    		if(!_user.isNew()){
 	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
 	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', 'ALL');
+
 	    		}
 	    	}
 	    	post['text'] = ListToArray(post.text);
@@ -279,7 +281,7 @@ component accessors="true" {
 	        params = {idList: idList, userID: request.user.id, lastTimestamp:lastTimestamp},
 	        returnType = "array" 
 	    );
-
+    	var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
     	for( post in posts ) {
 	    	var likes = ListToArray(post.likes); 
 	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
@@ -287,12 +289,15 @@ component accessors="true" {
 	    	//Get the comments
 	    	post['comments']  = [];
 	    	post['images'] = ListToArray(post.images);
+
 	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
 	    	for(mention in mentions){
-	    		_user.loadByTag( Mid(mention, 2, mention.len()) );
+	    		var link = Trim(mention);
+	    		_user.loadByTag( Mid(link, 2, link.len()));
 	    		if(!_user.isNew()){
 	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
 	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', 'ALL');
+
 	    		}
 	    	}
 	    	post['text'] = ListToArray(post.text);
