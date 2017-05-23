@@ -16,6 +16,7 @@ component accessors="true" {
 			exp_count: 0,
 			images: data.keyExists( 'images' ) ? data.images : [] ,
 			video: data.keyExists( 'video' ) ? data.video : '',
+			uuid: createUUID()
 		};
 
 		//Check if the post data is correct (len < 601)
@@ -219,7 +220,7 @@ component accessors="true" {
 	        params = {idList: idList, userID: request.user.id, start:index},
 	        returnType = "array" 
 	    );
-
+	    var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
 	    for( post in posts ) {
 	    	var likes = ListToArray(post.likes); 
 	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
@@ -227,6 +228,15 @@ component accessors="true" {
 	    	post['images'] = ListToArray(post.images);
 	    	//Get the comments
 	    	post['comments']  = [];
+	    	var mentions = REMatch('(@\w+)(\s|\Z)', post['text']);
+	    	for(mention in mentions){
+	    		_user.loadByTag( Mid(mention, 2, mention.len()) );
+	    		if(!_user.isNew()){
+	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
+	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', 'ALL');
+	    		}
+	    	}
+	    	post['text'] = ListToArray(post.text);
 	    }
 
 		//Grabs the most recent 20 posts starting from a given index that your friends have cumulatively made
@@ -277,6 +287,15 @@ component accessors="true" {
 	    	//Get the comments
 	    	post['comments']  = [];
 	    	post['images'] = ListToArray(post.images);
+	    	var mentions = REMatch('(@\w+)(\s|\Z)', post['text']);
+	    	for(mention in mentions){
+	    		_user.loadByTag( Mid(mention, 2, mention.len()) );
+	    		if(!_user.isNew()){
+	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
+	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', 'ALL');
+	    		}
+	    	}
+	    	post['text'] = ListToArray(post.text);
 	    }
 		//Gets your friends list
 
