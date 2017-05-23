@@ -1,9 +1,21 @@
 //Posting, Commenting, Liking, Sharing, Modifying, etc...
 component accessors="true" {
 
-	//Long pulling
-		//Checks for posts that are after the first post on your timeline. 
-		//Returns any new posts
+	/*
+
+		getPosts()
+		savePost()
+		deletePost()
+		longPullPosts()
+		likePost()
+		-------------------
+		getComments()
+		saveComment()
+		deleteComment()
+		longPullComments()
+		likeComment()
+
+	*/
 
 	public function savePost( data ) {
 		// Should only have a video or images. Not both
@@ -127,6 +139,12 @@ component accessors="true" {
 				returnType = "array"
 			);
 
+			var comments = application.dao.read(
+				sql="SELECT * FROM comments WHERE post_ID = :postID",
+				params = { postID: _post.getID() },
+				returnType = "array"
+			);
+
 			//Delete from these where id in array of IDs
 			for( image in post_to_images ) {
 				application.dao.execute(
@@ -167,19 +185,15 @@ component accessors="true" {
 				params = { postID: postID }
 			);
 
-			var comments = application.dao.read(
-				sql="SELECT * FROM comments WHERE post_ID = :postID",
-				params = { postID: _post.getID() },
-				returnType = "array"
-			);
-			// for ( comment of comments ) {
-					//commentService.deleteComment(comment.ID)
-					//Get Comments
-						//Delete comments
-							//Delete Images, comments 2 images
-							//Delete Videos, comments 2 videos
-						//Delete comment likes
-						//Delete Notifications
+
+			// for ( comment in comments ) {
+			// 		commentService.deleteComment(comment.ID)
+			// 		Get Comments
+			// 			Delete comments
+			// 				Delete Images, comments 2 images
+			// 				Delete Videos, comments 2 videos
+			// 			Delete comment likes
+			// 			Delete Notifications
 			// }
 			
 			// Delete Notifications
@@ -233,8 +247,8 @@ component accessors="true" {
 	    		var link = Trim(mention);
 	    		_user.loadByTag( Mid(link, 2, link.len()));
 	    		if(!_user.isNew()){
-	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
-	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', 'ALL');
+	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(link, 2, link.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
+	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(link, 2, link.len())#"> #mention# </a>#post.uuid#,', 'ALL');
 
 	    		}
 	    	}
@@ -248,7 +262,7 @@ component accessors="true" {
 	}	
 
 	public function sharePost( data ) {
-
+		//Sharing stuff
 	}
 
 	public function postLongPull( lastTimestamp ) {
@@ -286,27 +300,28 @@ component accessors="true" {
 	    	var likes = ListToArray(post.likes); 
 	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
 	    	post['likes'] = arrayLen( likes );  
-	    	//Get the comments
-	    	post['comments']  = [];
 	    	post['images'] = ListToArray(post.images);
+	    	// for(comment in post['comments']){
+	    	//	
+	    	// }
 
+	    	//OR
+
+	    	//post['comments'] = _commentService.getComment(post.ID)
 	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
 	    	for(mention in mentions){
 	    		var link = Trim(mention);
 	    		_user.loadByTag( Mid(link, 2, link.len()));
 	    		if(!_user.isNew()){
-	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
-	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(mention, 2, mention.len())#"> #mention# </a>#post.uuid#,', 'ALL');
+	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(link, 2, link.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
+	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(link, 2, link.len())#"> #mention# </a>#post.uuid#,', 'ALL');
 
 	    		}
 	    	}
 	    	post['text'] = ListToArray(post.text);
 	    }
-		//Gets your friends list
 
-		//Searches for all posts from your friends newer than a specified ID
-
-		//getComments()
+		
 
 		return posts;
 	}
