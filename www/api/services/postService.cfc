@@ -237,9 +237,15 @@ component accessors="true" {
 	    var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
 	    for( post in posts ) {
 	    	var likes = ListToArray(post.likes); 
+	    	var images = ListToArray(post.images);
 	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
 	    	post['likes'] = arrayLen( likes );
-	    	post['images'] = ListToArray(post.images);
+	    	post['images'] = [];
+	    	for( image in images ) {
+	    		// post['images'].arrayAppend({'src': image});
+	    		arrayAppend(post['images'], {'src': image})
+	    	}
+
 	    	//Get the comments
 	    	post['comments']  = [];
 	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
@@ -247,8 +253,8 @@ component accessors="true" {
 	    		var link = Trim(mention);
 	    		_user.loadByTag( Mid(link, 2, link.len()));
 	    		if(!_user.isNew()){
-	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(link, 2, link.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
-	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(link, 2, link.len())#"> #mention# </a>#post.uuid#,', 'ALL');
+	    			post['text'] = post['text'].replace(',#post.uuid & Mid(link, 2, link.len()) & post.uuid#,', mention, 'ALL' );
+	    			post['text'] = post['text'].replace(mention, ',#post.uuid & Mid(link, 2, link.len()) & post.uuid#,', 'ALL');
 
 	    		}
 	    	}
@@ -300,7 +306,11 @@ component accessors="true" {
 	    	var likes = ListToArray(post.likes); 
 	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
 	    	post['likes'] = arrayLen( likes );  
-	    	post['images'] = ListToArray(post.images);
+	    	post['images'] = [];
+	    	for( image in images ) {
+	    		// post['images'].arrayAppend({'src': image});
+	    		arrayAppend(post['images'], {'src': image})
+	    	}
 	    	// for(comment in post['comments']){
 	    	//	
 	    	// }
@@ -313,9 +323,8 @@ component accessors="true" {
 	    		var link = Trim(mention);
 	    		_user.loadByTag( Mid(link, 2, link.len()));
 	    		if(!_user.isNew()){
-	    			post['text'] = post['text'].replace(',#post.uuid#<a href="/user/#Mid(link, 2, link.len())#"> #mention# </a>#post.uuid#,', mention, 'ALL' );
-	    			post['text'] = post['text'].replace(mention, ',#post.uuid#<a href="/user/#Mid(link, 2, link.len())#"> #mention# </a>#post.uuid#,', 'ALL');
-
+	    			post['text'] = post['text'].replace(',#post.uuid & Mid(link, 2, link.len()) & post.uuid#,', mention, 'ALL' );
+	    			post['text'] = post['text'].replace(mention, ',#post.uuid & Mid(link, 2, link.len()) & post.uuid#,', 'ALL');
 	    		}
 	    	}
 	    	post['text'] = ListToArray(post.text);
