@@ -122,9 +122,8 @@ component accessors="true" {
 	}
 
 	public function deletePost( postID ) {
-
 		var _post = new com.database.Norm( table="posts", autowire = false, dao = application.dao );
-		_post.loadByPost_idAndUser_id( postID, request.user.id );
+		_post.loadByIDAndUser_id( postID, request.user.ID );
 
 		if( !_post.isNew() ) {
 			var post_to_images = application.dao.read(
@@ -195,10 +194,17 @@ component accessors="true" {
 			// 			Delete comment likes
 			// 			Delete Notifications
 			// }
-			
+			return {
+				status: application.status_code.success,
+				message: 'Successfully deleted image'
+			};
 			// Delete Notifications
 		}
 
+		return {
+			status: application.status_code.forbidden,
+			message: 'There was a problem making this request.'
+		};
 		//Delete subscriptions
 
 	}
