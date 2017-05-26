@@ -304,6 +304,7 @@ component accessors="true" {
     	var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
     	for( post in posts ) {
 	    	var likes = ListToArray(post.likes); 
+	    	var images = ListToArray(post.images);
 	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
 	    	post['likes'] = arrayLen( likes );  
 	    	post['images'] = [];
@@ -329,8 +330,6 @@ component accessors="true" {
 	    	}
 	    	post['text'] = ListToArray(post.text);
 	    }
-
-		
 
 		return posts;
 	}
