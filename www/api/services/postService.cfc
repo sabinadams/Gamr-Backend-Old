@@ -59,12 +59,7 @@ component accessors="true" {
 			application.dao.insert( table="posts_to_videos", data = {post_ID: postID, video_ID: videoID});
 		}
 
-		//Deal with mentions (Can't @mention yourself)
-			//Gets all the data.mentions
-			//Add a subscription to the post for the user @mentioned
-			//Sends them a notification
-			//The client will parse out @mentions into links to their page
-
+		
 		//Notify anyone who has subscribed to notifications from your posts
 			//Send notifications to all people subscribed to notifications when you post
 
@@ -340,4 +335,194 @@ component accessors="true" {
 		return posts;
 	}
 
+
+	public function saveComment( data ) {
+
+		var comment = {
+			text: data.text,
+			post_ID: data.postID, 
+			user_ID: request.user.id,
+			timestamp: now(),
+			exp_count: 0,
+			images: data.keyExists( 'images' ) ? data.images : [] ,
+			video: data.keyExists( 'video' ) ? data.video : '',
+			uuid: createUUID()
+		};
+
+		//Check if the comment data is correct (len < 601)
+		if( !comment.text.len() < 600 ){
+			return {
+				status: application.status_code.forbidden,
+				message: "Comments must be 600 characters or less."
+			};
+		}
+
+		//Save comment data and link to user
+		var commentID = application.dao.insert( table = 'comments', data = comment );
+		comment['ID'] = commentID;
+
+		if( arrayLen(comment.images) < 7 ) {
+			for( image in comment.images ) {
+				var imageID = application.dao.insert( table = 'images', data = { url: image } );
+				application.dao.insert( table="users_to_images", data = {user_ID: request.user.id, image_ID: imageID});
+				application.dao.insert( table="comments_to_images", data = {comment_ID: commentID, image_ID: imageID});
+			}
+		} 
+
+		//Check for video (1)
+		if( comment.video.len() > 0 ){
+			var videoID = application.dao.insert( table = 'videos', data = { url: data.video } );
+			application.dao.insert( table="users_to_videos", data = {user_ID: request.user.id, video_ID: videoID});
+			application.dao.insert( table="comments_to_videos", data = {comment_ID: commentID, video_ID: videoID});
+		}
+
+		return { status: application.status_code.success };
+
+	}
+
+	public function likeComment( commentID ) {
+		var _likecheck = new com.database.Norm( table="comment_likes", autowire = false, dao = application.dao );
+		_likecheck.loadByComment_idAndUser_id( commentID, request.user.id );
+		var _comment = new com.database.Norm( table="comments", autowire = false, dao = application.dao );
+		_comment.loadByID( commentID );
+
+		if(request.user.id != _comment.getUser_id() ){
+			if( _likecheck.isNew() ){
+				_likecheck.save();
+				 _comment.save();
+				return {
+					status: application.status_code.success,
+					liked: true
+				}
+			} else {
+				application.dao.execute(
+					sql="DELETE FROM comment_likes WHERE comment_ID = :commentID AND user_ID = :userID",
+					params = { commentID: commentID, userID: request.user.id }
+				);
+				return {
+					status: application.status_code.success,
+					liked: false
+				}
+			}
+		} else {
+			return {
+				status: application.status_code.forbidden,
+				message: "You can't like your own comment."
+			};
+		}
+	}
+
+	public function deleteComment( commentID ) {
+		var _comment = new com.database.Norm( table="comments", autowire = false, dao = application.dao );
+		_comment.loadByIDAndUser_id( commentID, request.user.ID );
+
+		if( !_comment.isNew() ) {
+			var comment_to_images = application.dao.read(
+				sql="SELECT * FROM comments_to_images WHERE comment_ID = :commentID",
+				params = { commentID: _comment.getID() },
+				returnType = "array"
+			);
+
+			var comment_to_videos = application.dao.read(
+				sql="SELECT * FROM comments_to_videos WHERE comment_ID = :commentID",
+				params = { commentID: _comment.getID() },
+				returnType = "array"
+			);
+
+			var comments = application.dao.read(
+				sql="SELECT * FROM comments WHERE comment_ID = :commentID",
+				params = { commentID: _comment.getID() },
+				returnType = "array"
+			);
+
+			//Delete from these where id in array of IDs
+			for( image in comment_to_images ) {
+				application.dao.execute(
+					sql="DELETE FROM images WHERE ID = :imageID",
+					params = { imageID: image.image_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM comments_to_images WHERE comment_ID = :commentID AND image_ID = :imageID",
+					params = { commentID: commentID, imageID: image.image_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM users_to_images WHERE user_ID = :userID AND image_ID = :imageID",
+					params = { userID: request.user.id, imageID: image.image_ID }
+				);
+			}
+			//Delete from these where id in array of IDs
+			for( video in comment_to_videos ) {
+				application.dao.execute(
+					sql="DELETE FROM videos WHERE ID = :videoID",
+					params = { videoID: video.video_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM comments_to_videos WHERE video_ID = :videoID AND comment_ID = :commentID",
+					params = { commentID: commentID, videoID: video.video_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM users_to_videos WHERE video_ID = :videoID AND user_ID = :userID",
+					params = { userID: request.user.id, videoID: video.video_ID }
+				);
+			}
+
+			application.dao.execute(
+				sql="DELETE FROM comment_likes WHERE comment_ID = :commentID",
+				params = { commentID: commentID }
+			);
+			application.dao.execute(
+				sql="DELETE FROM comments WHERE ID = :commentID",
+				params = { commentID: commentID }
+			);
+			return { status: application.status_code.success };
+		}
+	}
+
+	public function getComments( postID, index ) {
+
+		var comments = application.dao.read(
+	        sql = "
+	        	SELECT c.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
+	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
+	        	COUNT(DISTINCT c.ID) as comment_count,
+	        	GROUP_CONCAT(DISTINCT v.url) as video
+	        	FROM comments c
+	        	LEFT JOIN comment_likes l on l.comment_ID = c.id
+	        	LEFT JOIN users u on u.id = c.user_ID
+	        	LEFT JOIN users uoriginal on uoriginal.id = c.original_user
+	        	LEFT JOIN comments_to_images c2i on c2i.comment_ID = c.id
+	        	LEFT JOIN images i on c2i.image_ID = i.id
+	        	LEFT JOIN comments_to_videos c2v on c2v.comment_ID = c.id
+	        	LEFT JOIN videos v on c2v.video_ID = v.id
+	        	WHERE c.user_ID IN (:idList{list=true}) 
+	        	GROUP BY c.ID
+                ORDER BY c.timestamp DESC LIMIT :start{type='int'},10 
+	        ",
+	        params = {idList: idList, userID: request.user.id, start:index},
+	        returnType = "array" 
+	    );
+
+		var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
+
+		for( comment in comments ) {
+			var likes = ListToArray(comment.likes); 
+	    	var images = ListToArray(comment.images);
+			comment['liked'] = likes.find(request.user.id) != 0 ? true : false;  
+	    	comment['likes'] = arrayLen( likes );
+	    	comment['images'] = [];
+	    	for( image in images ) {
+	    		arrayAppend(comment['images'], {'src': image});
+	    	}
+			var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', comment['text']);
+	    	for(mention in mentions){
+	    		var link = Trim(mention);
+	    		_user.loadByTag( Mid(link, 2, link.len()));
+	    		if(!_user.isNew()){
+	    			comment['text'] = comment['text'].replace(',#comment.uuid & Mid(link, 2, link.len()) & comment.uuid#,', mention, 'ALL' );
+	    			comment['text'] = comment['text'].replace(mention, ',#comment.uuid & Mid(link, 2, link.len()) & comments.uuid#,', 'ALL');
+	    		}
+	    	}
+	    	comment['text'] = ListToArray(comment.text);
+		}
+	}
 }
