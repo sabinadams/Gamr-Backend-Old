@@ -4,7 +4,7 @@ component extends = "taffy.core.resource" taffy_uri="/postpull/{timestamp}/"{
 
 		var _postService = new services.postService();
 
-		return representationOf( _postService.postLongPull( timestamp )).withStatus( 200 );
+		return representationOf( _postService.getPosts( 0, timestamp )).withStatus( 200 );
 
 	}
 

@@ -26,8 +26,7 @@ component accessors="true" {
 			post_date: now(),
 			original_user: request.user.id, //May need this for sharing
 			exp_count: 0,
-			images: data.keyExists( 'images' ) ? data.images : [] ,
-			video: data.keyExists( 'video' ) ? data.video : '',
+			images: data.keyExists( 'images' ) ? data.images : [],
 			uuid: createUUID()
 		};
 
@@ -52,14 +51,7 @@ component accessors="true" {
 			}
 		}
 		
-		//Check for video (1)
-		if( post.video.len() > 0 ){
-			var videoID = application.dao.insert( table = 'videos', data = { url: data.video } );
-			application.dao.insert( table="users_to_videos", data = {user_ID: request.user.id, video_ID: videoID});
-			application.dao.insert( table="posts_to_videos", data = {post_ID: postID, video_ID: videoID});
-		}
-
-		
+	
 		//Notify anyone who has subscribed to notifications from your posts
 			//Send notifications to all people subscribed to notifications when you post
 
@@ -127,12 +119,6 @@ component accessors="true" {
 				returnType = "array"
 			);
 
-			var post_to_videos = application.dao.read(
-				sql="SELECT * FROM posts_to_videos WHERE post_ID = :postID",
-				params = { postID: _post.getID() },
-				returnType = "array"
-			);
-
 			var comments = application.dao.read(
 				sql="SELECT * FROM comments WHERE post_ID = :postID",
 				params = { postID: _post.getID() },
@@ -154,21 +140,6 @@ component accessors="true" {
 					params = { userID: request.user.id, imageID: image.image_ID }
 				);
 			}
-			//Delete from these where id in array of IDs
-			for( video in post_to_videos ) {
-				application.dao.execute(
-					sql="DELETE FROM videos WHERE ID = :videoID",
-					params = { videoID: video.video_ID }
-				);
-				application.dao.execute(
-					sql="DELETE FROM posts_to_videos WHERE video_ID = :videoID AND post_ID = :postID",
-					params = { postID: postID, videoID: video.video_ID }
-				);
-				application.dao.execute(
-					sql="DELETE FROM users_to_videos WHERE video_ID = :videoID AND user_ID = :userID",
-					params = { userID: request.user.id, videoID: video.video_ID }
-				);
-			}
 
 			application.dao.execute(
 				sql="DELETE FROM post_likes WHERE post_ID = :postID",
@@ -179,16 +150,8 @@ component accessors="true" {
 				params = { postID: postID }
 			);
 
+			//Delete comments and related data
 
-			// for ( comment in comments ) {
-			// 		commentService.deleteComment(comment.ID)
-			// 		Get Comments
-			// 			Delete comments
-			// 				Delete Images, comments 2 images
-			// 				Delete Videos, comments 2 videos
-			// 			Delete comment likes
-			// 			Delete Notifications
-			// }
 			return {
 				status: application.status_code.success,
 				message: 'Successfully deleted image'
@@ -204,137 +167,115 @@ component accessors="true" {
 
 	}
 
-	public function getPosts( index ) {
+	public function getPosts( index = 99, timestamp = "" ) {
 
+		var timeQuery = len(timestamp) ? 'AND p.timestamp > :lastTimestamp' : '';
+		var lengthQuery = len(timestamp) ? '' : "LIMIT :start" & "{" & "type='int'" & "}" & ",10";
 		var follows = application.dao.read( 
 			sql="SELECT GROUP_CONCAT(followed_ID) as user FROM follows WHERE follower_ID = :userID",
 			params = { userID: request.user.id }
 		);
+		var sql = "
+			SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
+			uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
+			COUNT(DISTINCT c.ID) as comment_count
+			FROM posts p
+			LEFT JOIN post_likes l on l.post_ID = p.id
+			LEFT JOIN users u on u.id = p.user_ID
+			LEFT JOIN users uoriginal on uoriginal.id = p.original_user
+			LEFT JOIN posts_to_images p2i on p2i.post_ID = p.id
+			LEFT JOIN images i on p2i.image_ID = i.id
+			LEFT JOIN comments c on c.post_ID = p.id
+			WHERE p.user_ID IN (:idList{list=true}) #timeQuery#
+			GROUP BY p.ID
+			ORDER BY p.timestamp DESC #lengthQuery#
+		";
+		
 		var idList = ListToArray(follows.user);
     	arrayAppend(idList, val(request.user.id));
 
 	    var posts = application.dao.read(
-	        sql = "
-	        	SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
-	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
-	        	COUNT(DISTINCT c.ID) as comment_count,
-	        	GROUP_CONCAT(DISTINCT v.url) as video
-	        	FROM posts p
-	        	LEFT JOIN post_likes l on l.post_ID = p.id
-	        	LEFT JOIN users u on u.id = p.user_ID
-	        	LEFT JOIN users uoriginal on uoriginal.id = p.original_user
-	        	LEFT JOIN posts_to_images p2i on p2i.post_ID = p.id
-	        	LEFT JOIN images i on p2i.image_ID = i.id
-	        	LEFT JOIN posts_to_videos p2v on p2v.post_ID = p.id
-	        	LEFT JOIN videos v on p2v.video_ID = v.id
-	        	LEFT JOIN comments c on c.post_ID = p.id
-	        	WHERE p.user_ID IN (:idList{list=true}) 
-	        	GROUP BY p.ID
-                ORDER BY p.timestamp DESC LIMIT :start{type='int'},10 
-	        ",
-	        params = {idList: idList, userID: request.user.id, start:index},
+	        sql = sql,
+	        params = {idList: idList, userID: request.user.id, start:index, lastTimestamp: timestamp},
 	        returnType = "array" 
 	    );
-	    var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
-	    for( post in posts ) {
-	    	var likes = ListToArray(post.likes); 
-	    	var images = ListToArray(post.images);
-	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
-	    	post['likes'] = arrayLen( likes );
-	    	post['images'] = [];
-	    	for( image in images ) {
-	    		// post['images'].arrayAppend({'src': image});
-	    		arrayAppend(post['images'], {'src': image})
-	    	}
 
-	    	//Get the comments
-	    	post['comments']  = [];
+	    var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
+
+	    for( var post in posts ) {
+			var likes = ListToArray(post.likes);
+	    	var images = ListToArray(post.images);
+			post['likes'] = arrayLen( likes );
+	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
+	    	post['images'] = [];
+	    	for( var image in images ) {
+	    		arrayAppend(post['images'], {'src': image})
+			}
 	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
-	    	for(mention in mentions){
+	    	for(var mention in mentions){
 	    		var link = Trim(mention);
 	    		_user.loadByTag( Mid(link, 2, link.len()));
 	    		if(!_user.isNew()){
 	    			post['text'] = post['text'].replace(',#post.uuid & Mid(link, 2, link.len()) & post.uuid#,', mention, 'ALL' );
 	    			post['text'] = post['text'].replace(mention, ',#post.uuid & Mid(link, 2, link.len()) & post.uuid#,', 'ALL');
-
 	    		}
 	    	}
 	    	post['text'] = ListToArray(post.text);
+			post['comments'] = getComments( post.ID, 0 );
+			for(var i = 1; i <= arrayLen(post['comments']); i++) {
+				post.comments[i]['replies'] = getComments( post.ID, 0, post.comments[i].ID, '', true);
+			}
 	    }
-
-		//Grabs the most recent 20 posts starting from a given index that your friends have cumulatively made
-			//Images, Videos, Likes, @mentions as well
-
 		return posts;
 	}	
+
+	public function getComments( postID, index, commentID = 999, timestamp = "", subcomment = false ) {
+		 var timeQuery = len(timestamp) ? 'AND c.timestamp > :lastTimestamp' : '';
+		 var commentQuery = subcomment ? 'WHERE c.post_ID = :postID AND c.comment_ID IS NULL' :  'WHERE c.post_ID = :postID AND c.comment_ID = :commentID';
+		 var comments = application.dao.read(
+			sql = "
+				SELECT c.*, u.display_name, u.id, u.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images  
+				FROM comments c
+				LEFT JOIN comment_likes l on l.comment_ID = c.id
+				LEFT JOIN users u on u.id = c.user_ID
+				LEFT JOIN comments_to_images c2i on c2i.comment_ID = c.id
+				LEFT JOIN images i on c2i.image_ID = i.id
+				WHERE c.post_ID = :postID AND c.comment_ID IS NULL #timeQuery#
+				GROUP BY c.ID
+				ORDER BY c.timestamp DESC LIMIT :index{type='int'},10
+			",
+			params = { postID: postID, index: index, commentID: commentID, lastTimestamp: timestamp},
+			returnType="array"
+		 );
+
+		for (var comment in comments) {
+			var likes = ListToArray(comment.likes);
+			var images = ListToArray(comment.images);
+			comment['likes'] = arrayLen( likes );
+			comment['liked'] = likes.find(request.user.id) != 0 ? true : false;  
+			comment['images'] = [];
+			for( var image in images ) {
+				arrayAppend(comment['images'], {'src': image})
+			}
+			var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
+			var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', comment['text']);
+			for(var mention in mentions){
+				var link = Trim(mention);
+				_user.loadByTag( Mid(link, 2, link.len()));
+				if(!_user.isNew()){
+					comment['text'] = comment['text'].replace(',#comment.uuid & Mid(link, 2, link.len()) & comment.uuid#,', mention, 'ALL' );
+					comment['text'] = comment['text'].replace(mention, ',#comment.uuid & Mid(link, 2, link.len()) & comment.uuid#,', 'ALL');
+				}
+			}
+			comment['text'] = ListToArray(comment.text);
+		}
+		return comments;
+	}
+
 
 	public function sharePost( data ) {
 		//Sharing stuff
 	}
-
-	public function postLongPull( lastTimestamp ) {
-		var follows = application.dao.read( 
-			sql="SELECT GROUP_CONCAT(followed_ID) as user FROM follows WHERE follower_ID = :userID",
-			params = { userID: request.user.id }
-		);
-		var idList = ListToArray(follows.user);
-    	arrayAppend(idList, val(request.user.id));
-
-    	 var posts = application.dao.read(
-	        sql = "
-	        	SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
-	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
-	        	COUNT(DISTINCT c.ID) as comment_count,
-	        	GROUP_CONCAT(DISTINCT v.url) as video
-	        	FROM posts p
-	        	LEFT JOIN post_likes l on l.post_ID = p.id
-	        	LEFT JOIN users u on u.id = p.user_ID
-	        	LEFT JOIN users uoriginal on uoriginal.id = p.original_user
-	        	LEFT JOIN posts_to_images p2i on p2i.post_ID = p.id
-	        	LEFT JOIN images i on p2i.image_ID = i.id
-	        	LEFT JOIN posts_to_videos p2v on p2v.post_ID = p.id
-	        	LEFT JOIN videos v on p2v.video_ID = v.id
-	        	LEFT JOIN comments c on c.post_ID = p.id
-	        	WHERE p.user_ID IN (:idList{list=true}) AND p.timestamp > :lastTimestamp
-	        	GROUP BY p.ID
-                ORDER BY p.timestamp DESC 
-	        ",
-	        params = {idList: idList, userID: request.user.id, lastTimestamp:lastTimestamp},
-	        returnType = "array" 
-	    );
-    	var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
-    	for( post in posts ) {
-	    	var likes = ListToArray(post.likes); 
-	    	var images = ListToArray(post.images);
-	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
-	    	post['likes'] = arrayLen( likes );  
-	    	post['images'] = [];
-	    	for( image in images ) {
-	    		// post['images'].arrayAppend({'src': image});
-	    		arrayAppend(post['images'], {'src': image})
-	    	}
-	    	// for(comment in post['comments']){
-	    	//	
-	    	// }
-
-	    	//OR
-
-	    	//post['comments'] = _commentService.getComment(post.ID)
-	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
-	    	for(mention in mentions){
-	    		var link = Trim(mention);
-	    		_user.loadByTag( Mid(link, 2, link.len()));
-	    		if(!_user.isNew()){
-	    			post['text'] = post['text'].replace(',#post.uuid & Mid(link, 2, link.len()) & post.uuid#,', mention, 'ALL' );
-	    			post['text'] = post['text'].replace(mention, ',#post.uuid & Mid(link, 2, link.len()) & post.uuid#,', 'ALL');
-	    		}
-	    	}
-	    	post['text'] = ListToArray(post.text);
-	    }
-
-		return posts;
-	}
-
 
 	public function saveComment( data ) {
 
@@ -478,51 +419,4 @@ component accessors="true" {
 		}
 	}
 
-	public function getComments( postID, index ) {
-
-		var comments = application.dao.read(
-	        sql = "
-	        	SELECT c.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
-	        	uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
-	        	COUNT(DISTINCT c.ID) as comment_count,
-	        	GROUP_CONCAT(DISTINCT v.url) as video
-	        	FROM comments c
-	        	LEFT JOIN comment_likes l on l.comment_ID = c.id
-	        	LEFT JOIN users u on u.id = c.user_ID
-	        	LEFT JOIN users uoriginal on uoriginal.id = c.original_user
-	        	LEFT JOIN comments_to_images c2i on c2i.comment_ID = c.id
-	        	LEFT JOIN images i on c2i.image_ID = i.id
-	        	LEFT JOIN comments_to_videos c2v on c2v.comment_ID = c.id
-	        	LEFT JOIN videos v on c2v.video_ID = v.id
-	        	WHERE c.user_ID IN (:idList{list=true}) 
-	        	GROUP BY c.ID
-                ORDER BY c.timestamp DESC LIMIT :start{type='int'},10 
-	        ",
-	        params = {idList: idList, userID: request.user.id, start:index},
-	        returnType = "array" 
-	    );
-
-		var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
-
-		for( comment in comments ) {
-			var likes = ListToArray(comment.likes); 
-	    	var images = ListToArray(comment.images);
-			comment['liked'] = likes.find(request.user.id) != 0 ? true : false;  
-	    	comment['likes'] = arrayLen( likes );
-	    	comment['images'] = [];
-	    	for( image in images ) {
-	    		arrayAppend(comment['images'], {'src': image});
-	    	}
-			var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', comment['text']);
-	    	for(mention in mentions){
-	    		var link = Trim(mention);
-	    		_user.loadByTag( Mid(link, 2, link.len()));
-	    		if(!_user.isNew()){
-	    			comment['text'] = comment['text'].replace(',#comment.uuid & Mid(link, 2, link.len()) & comment.uuid#,', mention, 'ALL' );
-	    			comment['text'] = comment['text'].replace(mention, ',#comment.uuid & Mid(link, 2, link.len()) & comments.uuid#,', 'ALL');
-	    		}
-	    	}
-	    	comment['text'] = ListToArray(comment.text);
-		}
-	}
 }
