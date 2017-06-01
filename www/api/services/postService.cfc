@@ -175,27 +175,25 @@ component accessors="true" {
 			sql="SELECT GROUP_CONCAT(followed_ID) as user FROM follows WHERE follower_ID = :userID",
 			params = { userID: request.user.id }
 		);
-		var sql = "
-			SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
-			uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
-			COUNT(DISTINCT c.ID) as comment_count
-			FROM posts p
-			LEFT JOIN post_likes l on l.post_ID = p.id
-			LEFT JOIN users u on u.id = p.user_ID
-			LEFT JOIN users uoriginal on uoriginal.id = p.original_user
-			LEFT JOIN posts_to_images p2i on p2i.post_ID = p.id
-			LEFT JOIN images i on p2i.image_ID = i.id
-			LEFT JOIN comments c on c.post_ID = p.id
-			WHERE p.user_ID IN (:idList{list=true}) #timeQuery#
-			GROUP BY p.ID
-			ORDER BY p.timestamp DESC #lengthQuery#
-		";
-		
 		var idList = ListToArray(follows.user);
     	arrayAppend(idList, val(request.user.id));
 
 	    var posts = application.dao.read(
-	        sql = sql,
+	        sql = "
+				SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
+				uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
+				COUNT(DISTINCT c.ID) as comment_count
+				FROM posts p
+				LEFT JOIN post_likes l on l.post_ID = p.id
+				LEFT JOIN users u on u.id = p.user_ID
+				LEFT JOIN users uoriginal on uoriginal.id = p.original_user
+				LEFT JOIN posts_to_images p2i on p2i.post_ID = p.id
+				LEFT JOIN images i on p2i.image_ID = i.id
+				LEFT JOIN comments c on c.post_ID = p.id
+				WHERE p.user_ID IN (:idList{list=true}) #timeQuery#
+				GROUP BY p.ID
+				ORDER BY p.timestamp DESC #lengthQuery#
+			",
 	        params = {idList: idList, userID: request.user.id, start:index, lastTimestamp: timestamp},
 	        returnType = "array" 
 	    );
@@ -231,7 +229,7 @@ component accessors="true" {
 
 	public function getComments( postID, index, commentID = 999, timestamp = "", subcomment = false ) {
 		 var timeQuery = len(timestamp) ? 'AND c.timestamp > :lastTimestamp' : '';
-		 var commentQuery = subcomment ? 'WHERE c.post_ID = :postID AND c.comment_ID IS NULL' :  'WHERE c.post_ID = :postID AND c.comment_ID = :commentID';
+		 var commentQuery = subcomment ? 'c.comment_ID = :commentID' : 'c.comment_ID IS NULL';
 		 var comments = application.dao.read(
 			sql = "
 				SELECT c.*, u.display_name, u.id, u.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images  
@@ -240,7 +238,7 @@ component accessors="true" {
 				LEFT JOIN users u on u.id = c.user_ID
 				LEFT JOIN comments_to_images c2i on c2i.comment_ID = c.id
 				LEFT JOIN images i on c2i.image_ID = i.id
-				WHERE c.post_ID = :postID AND c.comment_ID IS NULL #timeQuery#
+				WHERE c.post_ID = :postID AND #commentQuery# #timeQuery#
 				GROUP BY c.ID
 				ORDER BY c.timestamp DESC LIMIT :index{type='int'},10
 			",
