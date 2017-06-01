@@ -194,21 +194,18 @@ component accessors="true" {
 				GROUP BY p.ID
 				ORDER BY p.timestamp DESC #lengthQuery#
 			",
-	        params = {idList: idList, userID: request.user.id, start:index, lastTimestamp: timestamp},
+	        params = {idList: idList, start:index, lastTimestamp: timestamp},
 	        returnType = "array" 
 	    );
 
 	    var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
-
 	    for( var post in posts ) {
 			var likes = ListToArray(post.likes);
 	    	var images = ListToArray(post.images);
 			post['likes'] = arrayLen( likes );
 	    	post['liked'] = likes.find(request.user.id) != 0 ? true : false;  
 	    	post['images'] = [];
-	    	for( var image in images ) {
-	    		arrayAppend(post['images'], {'src': image})
-			}
+	    	for( var image in images ) { arrayAppend(post['images'], {'src': image}) }
 	    	var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', post['text']);
 	    	for(var mention in mentions){
 	    		var link = Trim(mention);
@@ -245,17 +242,14 @@ component accessors="true" {
 			params = { postID: postID, index: index, commentID: commentID, lastTimestamp: timestamp},
 			returnType="array"
 		 );
-
+		var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
 		for (var comment in comments) {
 			var likes = ListToArray(comment.likes);
 			var images = ListToArray(comment.images);
 			comment['likes'] = arrayLen( likes );
 			comment['liked'] = likes.find(request.user.id) != 0 ? true : false;  
 			comment['images'] = [];
-			for( var image in images ) {
-				arrayAppend(comment['images'], {'src': image})
-			}
-			var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
+			for( var image in images ) { arrayAppend(comment['images'], {'src': image}) }
 			var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', comment['text']);
 			for(var mention in mentions){
 				var link = Trim(mention);
