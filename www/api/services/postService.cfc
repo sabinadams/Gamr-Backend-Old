@@ -44,7 +44,7 @@ component accessors="true" {
 
 		//Check for images (<7)
 		if( arrayLen(post.images) < 7 ){
-			for( image in data.images ) {
+			for( var image in data.images ) {
 				var imageID = application.dao.insert( table = 'images', data = { url: image } );
 				application.dao.insert( table="users_to_images", data = {user_ID: request.user.id, image_ID: imageID});
 				application.dao.insert( table="posts_to_images", data = {post_ID: postID, image_ID: imageID});
@@ -83,7 +83,6 @@ component accessors="true" {
 				//Notify any @mentioned people that someone liked a post they were mentioned in
 
 				//Deal with experience stuff
-				 _post.save();
 				return {
 					status: application.status_code.success,
 					liked: true,
@@ -124,7 +123,9 @@ component accessors="true" {
 				params = { postID: _post.getID() },
 				returnType = "array"
 			);
-
+			for(var comment in comments) {
+				deleteComment(comment.ID);
+			}
 			//Delete from these where id in array of IDs
 			for( image in post_to_images ) {
 				application.dao.execute(
@@ -150,7 +151,8 @@ component accessors="true" {
 				params = { postID: postID }
 			);
 
-			//Delete comments and related data
+	
+
 
 			return {
 				status: application.status_code.success,
@@ -180,7 +182,7 @@ component accessors="true" {
 
 	    var posts = application.dao.read(
 	        sql = "
-				SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id,
+				SELECT p.*, u.display_name, u.id, u.profile_pic, uoriginal.display_name, uoriginal.id, u.tag,
 				uoriginal.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images,
 				COUNT(DISTINCT c.ID) as comment_count
 				FROM posts p
@@ -224,12 +226,12 @@ component accessors="true" {
 		return posts;
 	}	
 
-	public function getComments( postID, index, commentID = 999, timestamp = "", subcomment = false ) {
+	public function getComments( postID, index, commentID = 0, timestamp = "", subcomment = false ) {
 		 var timeQuery = len(timestamp) ? 'AND c.timestamp > :lastTimestamp' : '';
 		 var commentQuery = subcomment ? 'c.comment_ID = :commentID' : 'c.comment_ID IS NULL';
 		 var comments = application.dao.read(
 			sql = "
-				SELECT c.*, u.display_name, u.id, u.profile_pic, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images  
+				SELECT c.*, u.display_name, u.id, u.profile_pic, u.tag, GROUP_CONCAT( DISTINCT l.user_ID ) as likes, GROUP_CONCAT( DISTINCT i.url) as images  
 				FROM comments c
 				LEFT JOIN comment_likes l on l.comment_ID = c.id
 				LEFT JOIN users u on u.id = c.user_ID
@@ -273,7 +275,7 @@ component accessors="true" {
 
 		var comment = {
 			text: data.text,
-			post_ID: data.postID, 
+			post_ID: data.postID,
 			user_ID: request.user.id,
 			timestamp: now(),
 			exp_count: 0,
@@ -345,6 +347,8 @@ component accessors="true" {
 		}
 	}
 
+	// Wasn't working because it's loading by ID and User_ID. If a user delete's their post it will be deleting comments that he didn't write. 
+	// Need to account for this.
 	public function deleteComment( commentID ) {
 		var _comment = new com.database.Norm( table="comments", autowire = false, dao = application.dao );
 		_comment.loadByIDAndUser_id( commentID, request.user.ID );
@@ -352,12 +356,6 @@ component accessors="true" {
 		if( !_comment.isNew() ) {
 			var comment_to_images = application.dao.read(
 				sql="SELECT * FROM comments_to_images WHERE comment_ID = :commentID",
-				params = { commentID: _comment.getID() },
-				returnType = "array"
-			);
-
-			var comment_to_videos = application.dao.read(
-				sql="SELECT * FROM comments_to_videos WHERE comment_ID = :commentID",
 				params = { commentID: _comment.getID() },
 				returnType = "array"
 			);
@@ -383,30 +381,23 @@ component accessors="true" {
 					params = { userID: request.user.id, imageID: image.image_ID }
 				);
 			}
-			//Delete from these where id in array of IDs
-			for( video in comment_to_videos ) {
-				application.dao.execute(
-					sql="DELETE FROM videos WHERE ID = :videoID",
-					params = { videoID: video.video_ID }
-				);
-				application.dao.execute(
-					sql="DELETE FROM comments_to_videos WHERE video_ID = :videoID AND comment_ID = :commentID",
-					params = { commentID: commentID, videoID: video.video_ID }
-				);
-				application.dao.execute(
-					sql="DELETE FROM users_to_videos WHERE video_ID = :videoID AND user_ID = :userID",
-					params = { userID: request.user.id, videoID: video.video_ID }
-				);
-			}
-
+			
 			application.dao.execute(
 				sql="DELETE FROM comment_likes WHERE comment_ID = :commentID",
 				params = { commentID: commentID }
 			);
+			
+			var commentTest = application.dao.read(
+				sql="SELECT * FROM comments WHERE ID = :commentID",
+				params={commentID: commentID},
+				returnType="array"
+			);
+			writeDump(commentTest);abort;
 			application.dao.execute(
 				sql="DELETE FROM comments WHERE ID = :commentID",
 				params = { commentID: commentID }
 			);
+
 			return { status: application.status_code.success };
 		}
 	}
