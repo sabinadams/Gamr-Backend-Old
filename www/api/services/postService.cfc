@@ -18,14 +18,12 @@ component accessors="true" {
 	*/
 
 	public function savePost( data ) {
-		// Should only have a video or images. Not both
 		var post = {
 			text: data.text,
 			user_ID: request.user.id,
 			timestamp: now(),
 			post_date: now(),
 			original_user: request.user.id, //May need this for sharing
-			exp_count: 0,
 			images: data.keyExists( 'images' ) ? data.images : [],
 			uuid: createUUID()
 		};
@@ -50,12 +48,6 @@ component accessors="true" {
 				application.dao.insert( table="posts_to_images", data = {post_ID: postID, image_ID: imageID});
 			}
 		}
-		
-	
-		//Notify anyone who has subscribed to notifications from your posts
-			//Send notifications to all people subscribed to notifications when you post
-
-		//Deal with experience stuff
 
 		return {
 			status: application.status_code.success,
@@ -75,14 +67,7 @@ component accessors="true" {
 			if( _likecheck.isNew() ){
 				_likecheck.setUser_id(request.user.id);
 				_likecheck.save();
-				//Notify poster you liked their post
 
-				/* Notify any people subscribed to the post that someone liked a post they are subscribed to
-				   This includes people who manually subscribed, or people who have commented on the post */
-
-				//Notify any @mentioned people that someone liked a post they were mentioned in
-
-				//Deal with experience stuff
 				return {
 					status: application.status_code.success,
 					liked: true,
@@ -117,15 +102,6 @@ component accessors="true" {
 				params = { postID: _post.getID() },
 				returnType = "array"
 			);
-
-			var comments = application.dao.read(
-				sql="SELECT * FROM comments WHERE post_ID = :postID",
-				params = { postID: _post.getID() },
-				returnType = "array"
-			);
-			for(var comment in comments) {
-				deleteComment(comment.ID);
-			}
 			//Delete from these where id in array of IDs
 			for( image in post_to_images ) {
 				application.dao.execute(
@@ -151,22 +127,54 @@ component accessors="true" {
 				params = { postID: postID }
 			);
 
-	
-
+			deletePostComments(_post.getID());
 
 			return {
 				status: application.status_code.success,
-				message: 'Successfully deleted image'
+				message: 'Successfully deleted post'
 			};
-			// Delete Notifications
 		}
 
 		return {
 			status: application.status_code.forbidden,
 			message: 'There was a problem making this request.'
 		};
-		//Delete subscriptions
+	}
 
+	public function deletePostComments( postID ) {
+		var comments = application.dao.read(
+			sql="SELECT * FROM comments WHERE post_ID = :postID",
+			params = { postID: postID },
+			returnType = "array"
+		);
+		for(var comment in comments) {
+			var commentImages = application.dao.read(
+				sql="SELECT * FROM comments_to_images WHERE comment_ID = :commentID",
+				params={commentID: comment.ID}
+			);
+			application.dao.execute(
+				sql="DELETE FROM comment_likes WHERE comment_ID = :commentID",
+				params = {commentID: comment.ID}
+			);
+			for(image in commentImages) {
+				application.dao.execute(
+					sql="DELETE FROM comments_to_images WHERE comment_ID = :commentID",
+					params={commentID: comment.ID}
+				);
+				application.dao.execute(
+					sql="DELETE FROM users_to_images AND image_ID = :imageID",
+					params = {imageID: image.image_ID }
+				);
+				application.dao.execute(
+					sql="DELETE FROM images WHERE ID = :imageID",
+					params = {imageID: image.image_ID}
+				);
+			}
+		}
+		application.dao.execute(
+			sql="DELETE FROM comments WHERE post_ID = :postID",
+			params={postID: postID}
+		);
 	}
 
 	public function getPosts( index = 99, timestamp = "" ) {
@@ -392,7 +400,7 @@ component accessors="true" {
 				params={commentID: commentID},
 				returnType="array"
 			);
-			writeDump(commentTest);abort;
+
 			application.dao.execute(
 				sql="DELETE FROM comments WHERE ID = :commentID",
 				params = { commentID: commentID }
