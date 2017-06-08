@@ -288,9 +288,12 @@ component accessors="true" {
 			timestamp: now(),
 			exp_count: 0,
 			images: data.keyExists( 'images' ) ? data.images : [] ,
-			video: data.keyExists( 'video' ) ? data.video : '',
 			uuid: createUUID()
 		};
+
+		if(data.keyExists('commentID')) {
+			comment.comment_ID = data.commentID;
+		}
 
 		//Check if the comment data is correct (len < 601)
 		if( !comment.text.len() < 600 ){
@@ -304,6 +307,7 @@ component accessors="true" {
 		var commentID = application.dao.insert( table = 'comments', data = comment );
 		comment['ID'] = commentID;
 
+
 		if( arrayLen(comment.images) < 7 ) {
 			for( image in comment.images ) {
 				var imageID = application.dao.insert( table = 'images', data = { url: image } );
@@ -311,13 +315,6 @@ component accessors="true" {
 				application.dao.insert( table="comments_to_images", data = {comment_ID: commentID, image_ID: imageID});
 			}
 		} 
-
-		//Check for video (1)
-		if( comment.video.len() > 0 ){
-			var videoID = application.dao.insert( table = 'videos', data = { url: data.video } );
-			application.dao.insert( table="users_to_videos", data = {user_ID: request.user.id, video_ID: videoID});
-			application.dao.insert( table="comments_to_videos", data = {comment_ID: commentID, video_ID: videoID});
-		}
 
 		return { status: application.status_code.success };
 
@@ -355,8 +352,6 @@ component accessors="true" {
 		}
 	}
 
-	// Wasn't working because it's loading by ID and User_ID. If a user delete's their post it will be deleting comments that he didn't write. 
-	// Need to account for this.
 	public function deleteComment( commentID ) {
 		var _comment = new com.database.Norm( table="comments", autowire = false, dao = application.dao );
 		_comment.loadByIDAndUser_id( commentID, request.user.ID );
