@@ -1,14 +1,14 @@
 // Long polling eventually will manage notifications, unread pms, and timeline stuff. That doesn't have to do with this file
 // but at least it's somewhere in writing
 
-// What if we just had one table that help both comments, replies, and posts called Feed. All would have post_ID, comment_ID
+// Feed Items Structure
     /*
         Posts would have: post_ID = null, comment_ID = null
         Comments would have: post_ID = p.id, comment_ID = null
         Replies would have: post_ID = p.id, comment_ID = c.id
     */
 
-// Maybe just have an attachments table instead of videos, images, gifs, etc...
+// Attachments Structure
     /*
         All "attachments" would have a "type" flag: 
             0 = image 
@@ -16,24 +16,11 @@
             2 = video
     */
 
-// Users_to_attachments
-// feed_item_to_attachments
-
-
 component accessors="true" {
-
-    // Grabbing Posts
-        // Pass in nothing and get back 10 posts :D
-    // Long Polling Posts
-        // Pass in the timestamp of the first post in your array and a true flag for polling and get back
-        // any new posts that have happened since you first loaded the page!
-    // Grabbing more posts
-        // Pass in the timestamp of the last post you loaded and get back the 10 posts before that
 
     public function getFeedItems( timeIndex = "",  polling = false ){
         // - Get list of blocked accounts and accounts who block you
         // - Only grabs posts that are from users you aren't blocking and that aren't blocking you
-        // Last Timestamp should be the timestamp of the last loaded post in the timeline
 
         var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
 
@@ -163,6 +150,7 @@ component accessors="true" {
             }
         }
         // Splits the text csv into an array so it can be looped through on the client
+        // Might just go ahead and split text into an array here to eliminate some logic from the client
         row['text'] = ListToArray(row.text);
         return row;
     }
