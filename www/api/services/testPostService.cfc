@@ -126,6 +126,15 @@ component accessors="true" {
         StructDelete(row, 'profile_pic');
         StructDelete(row, 'comment_ID');
         StructDelete(row, 'post_ID');
+        
+        if(row.keyExists('comments')){
+            row['response_count'] = arrayLen(row['comments']);
+            for(var comment in row['comments']) {
+                row['response_count'] += arrayLen(comment['replies']);
+            }
+        } else {
+            row['response_count'] = 0;
+        }
         // Flag to determine whether or not you have liked the post
         row['liked'] = row['likes'].find(request.user.id) != 0 ? true : false;  
 
