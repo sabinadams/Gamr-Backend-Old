@@ -81,19 +81,21 @@ component accessors="true" {
         // Determines whether or not you are grabbing 3rd level responses, replies (they have a post_ID and a comment_ID)
         if( responseType == "replies" ){ typeQuery = "AND comment_ID = :commentID"; } 
         var responses = application.dao.read(
-            sql="SELECT r.*, 
-                u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
-                GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
-                GROUP_CONCAT( DISTINCT a.id) as attachments
-            FROM timeline_feed r 
-                LEFT JOIN timeline_feed_items_to_attachments r2a on r2a.item_ID = r.ID
-                LEFT JOIN timeline_likes l on l.item_ID = r.id
-                LEFT JOIN attachments a on r2a.attachment_ID = a.id
-                LEFT JOIN users u on u.id = r.user_ID
-            WHERE post_ID = :postID #typeQuery#
-            GROUP BY r.ID
-			ORDER BY r.timestamp DESC 
-            LIMIT #startQuery#10",
+            sql="
+                SELECT r.*, 
+                    u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
+                    GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
+                    GROUP_CONCAT( DISTINCT a.id) as attachments
+                FROM timeline_feed r 
+                    LEFT JOIN timeline_feed_items_to_attachments r2a on r2a.item_ID = r.ID
+                    LEFT JOIN timeline_likes l on l.item_ID = r.id
+                    LEFT JOIN attachments a on r2a.attachment_ID = a.id
+                    LEFT JOIN users u on u.id = r.user_ID
+                WHERE post_ID = :postID #typeQuery#
+                GROUP BY r.ID
+                ORDER BY r.timestamp DESC 
+                LIMIT #startQuery#10
+            ",
             params = {postID: postID, lastID: lastID, commentID: commentID},
             returnType="array"
         );
@@ -113,10 +115,10 @@ component accessors="true" {
         row['likes'] = row['likes'].filter((like) => { return like.user_ID; });
         // Gathers all the user data into a user object
         row['user'] = {
-            display_name: row.user_name,
-            id: row.user_ID,
-            tag: row.user_tag,
-            profile_pic: row.profile_pic
+            'display_name': row.user_name,
+            'ID': row.user_ID,
+            'tag': row.user_tag,
+            'profile_pic': row.profile_pic
         };
 
         // Flag to determine whether or not you have liked the post
@@ -160,6 +162,7 @@ component accessors="true" {
     }
 
     // Attachments should be uploaded seperately and their IDs should be sent instead to prevent some security issues
+    // Should be renamed to saveFeedItem()
     public function savePost( data ){
         // Make sure you are allowed to mention whoever is mentioned
         var post = {
