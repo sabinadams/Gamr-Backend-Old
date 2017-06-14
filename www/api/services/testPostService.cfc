@@ -120,7 +120,12 @@ component accessors="true" {
             'tag': row.user_tag,
             'profile_pic': row.profile_pic
         };
-
+        StructDelete(row, 'user_name');
+        StructDelete(row, 'user_ID');
+        StructDelete(row, 'user_tag');
+        StructDelete(row, 'profile_pic');
+        StructDelete(row, 'comment_ID');
+        StructDelete(row, 'post_ID');
         // Flag to determine whether or not you have liked the post
         row['liked'] = row['likes'].find(request.user.id) != 0 ? true : false;  
 
