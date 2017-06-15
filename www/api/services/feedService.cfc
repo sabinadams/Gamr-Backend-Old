@@ -196,15 +196,66 @@ component accessors="true" {
             post['post_ID'] = data.postID;
         }
 
-        application.dao.insert( table = 'timeline_feed', data = post );
-
+        var postID = application.dao.insert( table = 'timeline_feed', data = post );
         return {
-            status: application.status_code.success,
-            message: "Posted Successfully"
+            'status': application.status_code.success,
+            'message': "Posted Successfully",
+            'post': application.dao.read(
+                sql="SELECT * FROM timeline_feed WHERE ID = :postID", 
+                params={postID: postID},
+                returnType="array"
+            )[1]
         };
     }
 
     public function sharePost( postID ) {
         
+    }
+
+    public function deletePost( postID ) {
+        var _post = new com.database.Norm( table="timeline_feed", autowire = false, dao = application.dao );
+		_post.loadByIDAndUser_id( postID, request.user.ID );
+
+		if( !_post.isNew() ) {
+            var deleteQuery = '';
+            var commentCheck = _post.getPost_Id();
+            var replyCheck =  _post.getComment_ID();
+            if(commentCheck == 0 && replyCheck == 0){
+                deleteQuery = "ID = :postID OR post_ID = :postID OR comment_ID = :postID";
+            } else if (commentCheck != 0 && replyCheck == 0){
+                deleteQuery = "ID = :postID OR comment_ID = :postID";
+            } else if (commentCheck != 0 && replyCheck != 0){
+                deleteQuery = "ID = :postID";
+            }
+            // writeDump(deleteQuery);abort;
+            application.dao.execute(
+                sql="DELETE FROM timeline_feed WHERE #deleteQuery#",
+                params={postID: postID}
+            );
+            application.dao.execute(
+                sql="DELETE FROM attachments WHERE ID IN (
+                    SELECT attachment_ID FROM timeline_feed_items_to_attachments WHERE item_ID = :postID
+                )",
+                params={postID: postID}
+            );
+            application.dao.execute(
+                sql="DELETE FROM timeline_feed_items_to_attachments WHERE item_ID = :postID",
+                params={postID: postID}
+            );
+            application.dao.execute(
+                sql="DELETE FROM timeline_likes WHERE item_ID = :postID",
+                params={postID: postID}
+            );
+
+            return {
+                'status': application.status_code.success,
+                'message': "Posted Deleted!"
+            };
+        } else {
+            return {
+                'status': application.status_code.forbidden,
+                'message': "Not authorized to make this request."
+            };
+        }
     }
 }
