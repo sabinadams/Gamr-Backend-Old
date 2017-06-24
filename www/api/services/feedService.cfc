@@ -1,23 +1,9 @@
 // Long polling eventually will manage notifications, unread pms, and timeline stuff. That doesn't have to do with this file
 // but at least it's somewhere in writing
 
-// Feed Items Structure
-    /*
-        Posts would have: post_ID = null, comment_ID = null
-        Comments would have: post_ID = p.id, comment_ID = null
-        Replies would have: post_ID = p.id, comment_ID = c.id
-    */
-
-// Attachments Structure
-    /*
-        All "attachments" would have a "type" flag: 
-            0 = image 
-            1 = gif
-            2 = video
-    */
 
 component accessors="true" {
-
+    // Maybe don't even get responses here because it's going to the timeline preview section
     public function getFeedItems( timeIndex = "",  polling = false ){
         // - Get list of blocked accounts and accounts who block you
         // - Only grabs posts that are from users you aren't blocking and that aren't blocking you
@@ -66,20 +52,52 @@ component accessors="true" {
         return feed_items;
     }
 
+    public function getSingleFeedItem( itemID ){
+        var item = application.dao.read(
+            sql="
+                SELECT 
+                    r.*, 
+                    u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
+                    GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
+                    GROUP_CONCAT( DISTINCT a.id) as attachments
+                FROM timeline_feed r 
+                    LEFT JOIN timeline_feed_items_to_attachments r2a on r2a.item_ID = r.ID
+                    LEFT JOIN timeline_likes l on l.item_ID = r.id
+                    LEFT JOIN attachments a on r2a.attachment_ID = a.id
+                    LEFT JOIN users u on u.id = r.user_ID
+                WHERE ID = :itemID 
+            ",
+            params = { itemID: itemID },
+            returnType="array"
+        )[0];        
+        item['comments'] = [];
+        return formatFeedItem(item);
+    }
+
     // responseType will be set by the controller, not the client
      /*
         Find a way to do indexing and take into account the fact that people could comment 
         before you go to load more, which would throw your index off
      */
-    //  This process should be re-thought
-    public function getResponses( lastID = 0, postID, commentID = "", responseType = "" ){
+    //  ------------------------> The below process should be re-thought because it's naysty <------------------------
+
+    /*
+
+        Index (Required): Which index to start grabbing posts from (0 will start from beginning)
+        postID (Required): Root level post's ID
+        commentID (Only pass if getting replies): ID of second level response
+        replies (Only pass if getting replies): true if looking for replies, else getting comments with replies
+
+    */
+    // public function getResponses( index = 0, postID = 0, commentID = 0, responseType = "" ){
+    public function getResponses( required struct data ){
+
         var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
-        // Will query for comments that are 2nd level (they have no comment_ID set)
-        var typeQuery = "AND comment_ID = 0";
         // Grabs based off an index (NOT TESTED)
-        var startQuery = lastID != 0 ? ":index{type='int'}," : "";
+        var startQuery = data.index != 0 ? ":index{type='int'}," : "";
         // Determines whether or not you are grabbing 3rd level responses, replies (they have a post_ID and a comment_ID)
-        if( responseType == "replies" ){ typeQuery = "AND comment_ID = :commentID"; } 
+        var typeQuery = "AND comment_ID = " & data.replies ? ":commentID" : "0";
+        // Queries for feed items based on criteria
         var responses = application.dao.read(
             sql="
                 SELECT r.*, 
@@ -96,19 +114,18 @@ component accessors="true" {
                 ORDER BY r.timestamp DESC 
                 LIMIT #startQuery#10
             ",
-            params = {postID: postID, lastID: lastID, commentID: commentID},
+            params = {postID: data.postID, index: data.index, commentID: data.commentID},
             returnType="array"
         );
 
         for(var response in responses){
-            if( responseType != 'replies'){
-                response['replies'] = getResponses(0, postID, response.ID, "replies" );
+            if( data.replies ){
+                response['replies'] = getResponses({index: 0, postID: postID, commentID: response.ID, replies: true} );
             }
             response = formatFeedItem(response, _user);
         }
         return responses;
     }
-
 
     public function formatFeedItem( row, _user ) {
         // Parses likes csv to an array
@@ -173,6 +190,32 @@ component accessors="true" {
 
     public function toggleLike( itemID ){
         // Likes and unlikes posts
+        var _post = new com.database.Norm( table="timeline_feed", autowire = false, dao = application.dao );
+        var _like = new com.database.Norm( table="timeline_likes", autowire = false, dao = application.dao );
+        _post.loadByIDAndUser_id( postID );
+		if( !_post.isNew() && _post.getID() != request.user.ID ) {
+            _like.loadByUser_IDAndItemID(request.user.ID, itemID);
+
+            if(_like.isNew()){
+                _like.setTimestamp(now());
+                _like.save();
+            } else {
+                application.dao.execute(
+                    sql="DELETE FROM timeline_likes WHERE user_ID = :userID AND item_ID = :itemID",
+                    params={userID: request.user.id, itemID: itemID}
+                );
+            }
+
+            return {
+                'status': application.status_code.success,
+                'message': 'Liked post'
+            };
+        } else {
+            return {
+                'status': application.status_code.forbidden,
+                'message': 'There was a problem with this request.'
+            };
+        } 
     }
 
     // Attachments should be uploaded seperately and their IDs should be sent instead to prevent some security issues
@@ -195,21 +238,17 @@ component accessors="true" {
         if(data.keyExists('postID')){
             post['post_ID'] = data.postID;
         }
-
+        
         var postID = application.dao.insert( table = 'timeline_feed', data = post );
+        // Should return a single response in the post field
         return {
             'status': application.status_code.success,
             'message': "Posted Successfully",
-            'post': application.dao.read(
-                sql="SELECT * FROM timeline_feed WHERE ID = :postID", 
-                params={postID: postID},
-                returnType="array"
-            )[1]
+            'post': getSingleFeedItem(postID)
         };
     }
 
-    public function sharePost( postID ) {
-        
+    public function sharePost( postID ) {   
     }
 
     public function deletePost( postID ) {
@@ -220,6 +259,7 @@ component accessors="true" {
             var deleteQuery = '';
             var commentCheck = _post.getPost_Id();
             var replyCheck =  _post.getComment_ID();
+
             if(commentCheck == 0 && replyCheck == 0){
                 deleteQuery = "ID = :postID OR post_ID = :postID OR comment_ID = :postID";
             } else if (commentCheck != 0 && replyCheck == 0){
@@ -227,7 +267,7 @@ component accessors="true" {
             } else if (commentCheck != 0 && replyCheck != 0){
                 deleteQuery = "ID = :postID";
             }
-            // writeDump(deleteQuery);abort;
+
             application.dao.execute(
                 sql="DELETE FROM timeline_feed WHERE #deleteQuery#",
                 params={postID: postID}
