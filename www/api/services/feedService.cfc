@@ -46,7 +46,7 @@ component accessors="true" {
             returnType="array"
         );
         for(var item in feed_items){
-            item['comments'] = getResponses(0, item.ID );
+            item['comments'] = getResponses({index: 0, postID: item.ID, commentID: 0, replies: true} );
             item = formatFeedItem(item, _user);
         }
         return feed_items;
@@ -65,15 +65,31 @@ component accessors="true" {
                     LEFT JOIN timeline_likes l on l.item_ID = r.id
                     LEFT JOIN attachments a on r2a.attachment_ID = a.id
                     LEFT JOIN users u on u.id = r.user_ID
-                WHERE ID = :itemID 
+                WHERE r.ID = :itemID 
             ",
             params = { itemID: itemID },
             returnType="array"
-        )[0];        
+        )[1];        
         item['comments'] = [];
         return formatFeedItem(item);
     }
 
+    public function test() {
+        // var user = application.dao.from(
+        //     table = "users",
+        //     columns = "users.ID, users.tag, users.email" 
+        // ).join( 
+        //     type = "LEFT", 
+        //     table = "sessions", 
+        //     on = "users.ID = sessions.user_ID",
+        //     columns = "sessions.token as sessionToken"
+        // ).groupBy(
+        //     'users.ID'
+        // ).where( 
+        //     "users.ID", "=", 27 
+        // ).returnAs('array').run();
+        return {message: 'test'};
+    }
     // responseType will be set by the controller, not the client
      /*
         Find a way to do indexing and take into account the fact that people could comment 
@@ -96,7 +112,7 @@ component accessors="true" {
         // Grabs based off an index (NOT TESTED)
         var startQuery = data.index != 0 ? ":index{type='int'}," : "";
         // Determines whether or not you are grabbing 3rd level responses, replies (they have a post_ID and a comment_ID)
-        var typeQuery = "AND comment_ID = " & data.replies ? ":commentID" : "0";
+        var typeQuery = "AND comment_ID = " & (data.replies ? ":commentID" : "0");
         // Queries for feed items based on criteria
         var responses = application.dao.read(
             sql="
@@ -119,13 +135,21 @@ component accessors="true" {
         );
 
         for(var response in responses){
-            if( data.replies ){
-                response['replies'] = getResponses({index: 0, postID: postID, commentID: response.ID, replies: true} );
-            }
+            response['replies'] = getResponses({index: 0, postID: data.postID, commentID: response.ID, replies: true} );
             response = formatFeedItem(response, _user);
         }
         return responses;
     }
+
+    public function test() {
+        
+        var user = new com.database.Norm( dao = application.dao, table = 'users');
+        user.setDynamicMappingFKConvention('user_ID');
+        user.hasMany('sessions');
+        user.loadByID(27);
+        
+        return user.getSessions().toStruct();
+    }   
 
     public function formatFeedItem( row, _user ) {
         // Parses likes csv to an array
@@ -147,7 +171,9 @@ component accessors="true" {
         if(row.keyExists('comments')){
             row['response_count'] = arrayLen(row['comments']);
             for(var comment in row['comments']) {
-                row['response_count'] += arrayLen(comment['replies']);
+                if(comment.keyExists('replies')){
+                    row['response_count'] += arrayLen(comment['replies']);
+                }
             }
         } else {
             row['response_count'] = 0;

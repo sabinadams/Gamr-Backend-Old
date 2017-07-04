@@ -7,7 +7,7 @@ component extends="taffy.core.api"{
     this.mappings['/taffy'] = expandPath( '/api/taffy' );
     this.mappings['/services'] = expandPath( '/api/services' );
     this.mappings['/resources'] = expandPath( '/api/resources' );
-
+	this.mappings['/models'] = expandPath('/api/models');
     //Request header configurations
 	getPageContext().getResponse().addHeader("Access-Control-Allow-Origin","*");
  	getPageContext().getResponse().addHeader("Access-Control-Allow-Headers","Origin, Authorization, X-CSRF-Token, X-Requested-With, Content-Type, X-HTTP-Method-Override, Accept, Referrer, User-Agent");
