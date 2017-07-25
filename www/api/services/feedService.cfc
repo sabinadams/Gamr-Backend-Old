@@ -53,6 +53,7 @@ component accessors="true" {
     }
 
     public function getSingleFeedItem( itemID ){
+        var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
         var item = application.dao.read(
             sql="
                 SELECT 
@@ -71,7 +72,7 @@ component accessors="true" {
             returnType="array"
         )[1];        
         item['comments'] = [];
-        return formatFeedItem(item);
+        return formatFeedItem(item, _user);
     }
 
     public function test() {
