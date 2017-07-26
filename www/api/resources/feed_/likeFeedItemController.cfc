@@ -1,6 +1,6 @@
-component extends = "taffy.core.resource" taffy_uri="/feed/like/{itemID}/"{
+component extends = "taffy.core.resource" taffy_uri="/feed/like/"{
 
-	function get( itemID ){
+	function post( itemID ){
 		var _feedSvc = new services.feedService();
 		return representationOf( _feedSvc.toggleLike( itemID ) ).withStatus( 200 );
 	}

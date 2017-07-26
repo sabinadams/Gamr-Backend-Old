@@ -154,7 +154,9 @@ component accessors="true" {
 
     public function formatFeedItem( row, _user ) {
         // Parses likes csv to an array
-        row['likes'] = row['likes'].filter((like) => { return like.user_ID; });
+        row['likes'] = ListToArray(row['likes']);
+        // Flag to determine whether or not you have liked the post
+        row['liked'] = arrayFind(row['likes'], request.user.ID) != 0 ? true : false;
         // Gathers all the user data into a user object
         row['user'] = {
             'display_name': row.user_name,
@@ -179,8 +181,6 @@ component accessors="true" {
         } else {
             row['response_count'] = 0;
         }
-        // Flag to determine whether or not you have liked the post
-        row['liked'] = row['likes'].find(request.user.id) != 0 ? true : false;  
 
         // Prepares attachments object (images: 0 | gifs: 1 | videos: 2)
         var attachments = row['attachments'];
@@ -219,10 +219,9 @@ component accessors="true" {
         // Likes and unlikes posts
         var _post = new com.database.Norm( table="timeline_feed", autowire = false, dao = application.dao );
         var _like = new com.database.Norm( table="timeline_likes", autowire = false, dao = application.dao );
-        _post.loadByIDAndUser_id( postID );
-		if( !_post.isNew() && _post.getID() != request.user.ID ) {
-            _like.loadByUser_IDAndItemID(request.user.ID, itemID);
-
+        _post.loadByID( itemID );
+		if( !_post.isNew() && _post.getUser_id() != request.user.ID ) {
+            _like.loadByUser_IDAndItem_ID(request.user.ID, itemID);
             if(_like.isNew()){
                 _like.setTimestamp(now());
                 _like.save();
@@ -232,7 +231,6 @@ component accessors="true" {
                     params={userID: request.user.id, itemID: itemID}
                 );
             }
-
             return {
                 'status': application.status_code.success,
                 'message': 'Liked post'
