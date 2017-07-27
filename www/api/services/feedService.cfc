@@ -262,6 +262,10 @@ component accessors="true" {
         }
         if(data.keyExists('postID')){
             post['post_ID'] = data.postID;
+            var _parent_post = new com.database.Norm( table="timeline_feed", autowire = false, dao = application.dao );
+            _parent_post.loadByID(data.postID);
+            _parent_post.setTimestamp( now() );
+            _parent_post.save();
         }
         
         var postID = application.dao.insert( table = 'timeline_feed', data = post );
