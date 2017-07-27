@@ -110,6 +110,7 @@ component accessors="true" {
 					'profile_pic': 'http://placehold.it/200x200', //temporary
 					'level': 1,
 					'logged_in': 1,
+					'post_count': 0,
 					'exp_count': 0
 				}
 			};
@@ -137,6 +138,8 @@ component accessors="true" {
 				&& _user.getActive() 
 				&& _user.getPassword() == hash( password & salt, "SHA-512" )
 			){
+				var postCount = application.dao.read(sql="SELECT COUNT(*) as postCount FROM timeline_feed WHERE user_ID = :userID", params={userID: _user.getID()}).postCount;
+
 				//Check to see if there is a session with the provided token
 				_session.loadByTokenAndUser_id( token, _user.getID() );
 
@@ -164,6 +167,7 @@ component accessors="true" {
 							'display_name': _user.getDisplay_name(),
 							'profile_pic': _user.getProfile_pic(),
 							'token': token,
+							'post_count': postCount,
 							'message': "Used existing token",
 							'logged_in': 1
 						}
@@ -189,6 +193,7 @@ component accessors="true" {
 							'display_name': _user.getDisplay_name(),
 							'profile_pic': _user.getProfile_pic(),
 							'token': token,
+							'post_count': postCount,
 							'message': "New token generated",
 							'logged_in': 1
 						}
