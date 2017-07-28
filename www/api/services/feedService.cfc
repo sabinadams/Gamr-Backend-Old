@@ -269,11 +269,13 @@ component accessors="true" {
         }
         
         var postID = application.dao.insert( table = 'timeline_feed', data = post );
+        var _userService = new services.userService();
         // Should return a single response in the post field
         return {
             'status': application.status_code.success,
             'message': "Posted Successfully",
-            'post': getSingleFeedItem(postID)
+            'post': getSingleFeedItem(postID),
+            'post_count': _userService.getUserPostCount( request.user.id )
         };
     }
 
@@ -315,10 +317,11 @@ component accessors="true" {
                 sql="DELETE FROM timeline_likes WHERE item_ID = :postID",
                 params={postID: postID}
             );
-
+            var _userService = new services.userService();
             return {
                 'status': application.status_code.success,
-                'message': "Posted Deleted!"
+                'message': "Posted Deleted!",
+                'post_count': _userService.getUserPostCount( request.user.id )
             };
         } else {
             return {

@@ -138,7 +138,8 @@ component accessors="true" {
 				&& _user.getActive() 
 				&& _user.getPassword() == hash( password & salt, "SHA-512" )
 			){
-				var postCount = application.dao.read(sql="SELECT COUNT(*) as postCount FROM timeline_feed WHERE user_ID = :userID", params={userID: _user.getID()}).postCount;
+				var _userService = new services.userService();
+				var postCount = _userService.getUserPostCount( _user.getID() );
 
 				//Check to see if there is a session with the provided token
 				_session.loadByTokenAndUser_id( token, _user.getID() );

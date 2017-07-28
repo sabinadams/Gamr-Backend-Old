@@ -15,10 +15,7 @@ component accessors="true" {
 				'display_name': _user.getDisplay_name(),
 				'profile_pic': _user.getProfile_pic(),
 				'self':  _user.getID() == request.user.id ? true : false,
-				'post_count': application.dao.read(sql=
-					"SELECT COUNT(*) as postCount FROM timeline_feed WHERE user_ID = :userID",
-					params = {userID: _user.getID()}
-				).postCount
+				'post_count': getUserPostCount( _user.getID() )
 			};
 			
 			return user;
@@ -29,6 +26,13 @@ component accessors="true" {
 			};
 		}
 		
+	}
+
+	public function getUserPostCount( userID ) {
+		return application.dao.read(sql=
+			"SELECT COUNT(*) as postCount FROM timeline_feed WHERE user_ID = :userID",
+			params = {userID: userID}
+		).postCount;
 	}
 
 }
