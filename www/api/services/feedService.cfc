@@ -3,7 +3,6 @@
 
 
 component accessors="true" {
-    // Maybe don't even get responses here because it's going to the timeline preview section
     public function getFeedItems( timeIndex = "",  polling = false ){
         // - Get list of blocked accounts and accounts who block you
         // - Only grabs posts that are from users you aren't blocking and that aren't blocking you
@@ -23,13 +22,14 @@ component accessors="true" {
                     r.*, 
                     u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
                     GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
-                    GROUP_CONCAT( DISTINCT a.id) as attachments
+                    GROUP_CONCAT( DISTINCT a.id) as attachments, COUNT(rp.UUID) as response_count
                 FROM timeline_feed r 
                     LEFT JOIN timeline_feed_items_to_attachments r2a on r2a.item_ID = r.ID
                     LEFT JOIN timeline_likes l on l.item_ID = r.id
                     LEFT JOIN attachments a on r2a.attachment_ID = a.id
                     LEFT JOIN users u on u.id = r.user_ID
-                WHERE post_ID = 0 AND comment_ID = 0 
+                    LEFT JOIN timeline_feed rp on rp.post_ID = r.ID
+                WHERE r.post_ID = 0 AND r.comment_ID = 0 
                     AND (
                         r.user_ID IN (
                             SELECT followed_ID FROM follows
@@ -60,12 +60,13 @@ component accessors="true" {
                     r.*, 
                     u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
                     GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
-                    GROUP_CONCAT( DISTINCT a.id) as attachments
+                    GROUP_CONCAT( DISTINCT a.id) as attachments, COUNT(rp.UUID) as response_count
                 FROM timeline_feed r 
                     LEFT JOIN timeline_feed_items_to_attachments r2a on r2a.item_ID = r.ID
                     LEFT JOIN timeline_likes l on l.item_ID = r.id
                     LEFT JOIN attachments a on r2a.attachment_ID = a.id
                     LEFT JOIN users u on u.id = r.user_ID
+                    LEFT JOIN timeline_feed rp on rp.post_ID = r.ID
                 WHERE r.ID = :itemID 
             ",
             params = { itemID: itemID },
@@ -75,29 +76,6 @@ component accessors="true" {
         return formatFeedItem(item, _user);
     }
 
-    public function test() {
-        // var user = application.dao.from(
-        //     table = "users",
-        //     columns = "users.ID, users.tag, users.email" 
-        // ).join( 
-        //     type = "LEFT", 
-        //     table = "sessions", 
-        //     on = "users.ID = sessions.user_ID",
-        //     columns = "sessions.token as sessionToken"
-        // ).groupBy(
-        //     'users.ID'
-        // ).where( 
-        //     "users.ID", "=", 27 
-        // ).returnAs('array').run();
-        return {message: 'test'};
-    }
-    // responseType will be set by the controller, not the client
-     /*
-        Find a way to do indexing and take into account the fact that people could comment 
-        before you go to load more, which would throw your index off
-     */
-    //  ------------------------> The below process should be re-thought because it's naysty <------------------------
-
     /*
 
         Index (Required): Which index to start grabbing posts from (0 will start from beginning)
@@ -106,27 +84,29 @@ component accessors="true" {
         replies (Only pass if getting replies): true if looking for replies, else getting comments with replies
 
     */
-    // public function getResponses( index = 0, postID = 0, commentID = 0, responseType = "" ){
     public function getResponses( required struct data ){
 
         var _user = new com.database.Norm( table="users", autowire = false, dao = application.dao );
         // Grabs based off an index (NOT TESTED)
         var startQuery = data.index != 0 ? ":index{type='int'}," : "";
         // Determines whether or not you are grabbing 3rd level responses, replies (they have a post_ID and a comment_ID)
-        var typeQuery = "AND comment_ID = " & (data.replies ? ":commentID" : "0");
+        var typeQuery = "AND r.comment_ID = " & (data.replies ? ":commentID" : "0");
+        
         // Queries for feed items based on criteria
         var responses = application.dao.read(
             sql="
                 SELECT r.*, 
                     u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
                     GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
-                    GROUP_CONCAT( DISTINCT a.id) as attachments
+                    GROUP_CONCAT( DISTINCT a.id) as attachments,
+                    COUNT(rp.UUID) as response_count
                 FROM timeline_feed r 
                     LEFT JOIN timeline_feed_items_to_attachments r2a on r2a.item_ID = r.ID
                     LEFT JOIN timeline_likes l on l.item_ID = r.id
                     LEFT JOIN attachments a on r2a.attachment_ID = a.id
                     LEFT JOIN users u on u.id = r.user_ID
-                WHERE post_ID = :postID #typeQuery#
+                    LEFT JOIN timeline_feed rp ON rp.comment_ID = r.ID
+                WHERE r.post_ID = :postID #typeQuery#
                 GROUP BY r.ID
                 ORDER BY r.timestamp DESC 
                 LIMIT #startQuery#10
@@ -141,16 +121,6 @@ component accessors="true" {
         }
         return responses;
     }
-
-    public function test() {
-        
-        var user = new com.database.Norm( dao = application.dao, table = 'users');
-        user.setDynamicMappingFKConvention('user_ID');
-        user.hasMany('sessions');
-        user.loadByID(27);
-        
-        return user.getSessions().toStruct();
-    }   
 
     public function formatFeedItem( row, _user ) {
         // Parses likes csv to an array
@@ -171,15 +141,8 @@ component accessors="true" {
         StructDelete(row, 'comment_ID');
         StructDelete(row, 'post_ID');
         
-        if(row.keyExists('comments')){
-            row['response_count'] = arrayLen(row['comments']);
-            for(var comment in row['comments']) {
-                if(comment.keyExists('replies')){
-                    row['response_count'] += arrayLen(comment['replies']);
-                }
-            }
-        } else {
-            row['response_count'] = 0;
+        if(!row.keyExists('response_count') ){
+            row['response_count']=0;
         }
 
         // Prepares attachments object (images: 0 | gifs: 1 | videos: 2)
