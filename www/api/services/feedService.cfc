@@ -22,13 +22,18 @@ component accessors="true" {
                     r.*, 
                     u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
                     GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
-                    GROUP_CONCAT( DISTINCT a.id) as attachments, COUNT(rp.UUID) as response_count
+                    GROUP_CONCAT( DISTINCT a.id) as attachments, 
+                    COUNT(DISTINCT rp.UUID) as response_count,
+                    COUNT(DISTINCT cc.UUID) as comment_count,
+                    COUNT(DISTINCT rc.UUID) as reply_count
                 FROM timeline_feed r 
                     LEFT JOIN timeline_feed_items_to_attachments r2a on r2a.item_ID = r.ID
                     LEFT JOIN timeline_likes l on l.item_ID = r.id
                     LEFT JOIN attachments a on r2a.attachment_ID = a.id
                     LEFT JOIN users u on u.id = r.user_ID
                     LEFT JOIN timeline_feed rp on rp.post_ID = r.ID
+                    LEFT JOIN timeline_feed cc on cc.post_ID = r.ID AND cc.comment_ID = 0
+                    LEFT JOIN timeline_feed rc on rc.post_ID = r.ID AND rc.comment_ID != 0
                 WHERE r.post_ID = 0 AND r.comment_ID = 0 
                     AND (
                         r.user_ID IN (
@@ -60,13 +65,15 @@ component accessors="true" {
                     r.*, 
                     u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
                     GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
-                    GROUP_CONCAT( DISTINCT a.id) as attachments, COUNT(rp.UUID) as response_count
+                    GROUP_CONCAT( DISTINCT a.id) as attachments, COUNT(rp.UUID) as response_count,
+                    COUNT(cc.ID) as comment_count
                 FROM timeline_feed r 
                     LEFT JOIN timeline_feed_items_to_attachments r2a on r2a.item_ID = r.ID
                     LEFT JOIN timeline_likes l on l.item_ID = r.id
                     LEFT JOIN attachments a on r2a.attachment_ID = a.id
                     LEFT JOIN users u on u.id = r.user_ID
                     LEFT JOIN timeline_feed rp on rp.post_ID = r.ID
+                    LEFT JOIN timeline_feed cc on cc.post_ID = r.ID AND cc.comment_ID = 0
                 WHERE r.ID = :itemID 
             ",
             params = { itemID: itemID },
