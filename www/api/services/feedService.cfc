@@ -22,7 +22,7 @@ component accessors="true" {
                     r.*, 
                     u.display_name as user_name, u.id as user_ID, u.profile_pic as profile_pic, u.tag as user_tag, 
                     GROUP_CONCAT( DISTINCT l.user_ID ) as likes,
-                    GROUP_CONCAT( DISTINCT a.id) as attachments, 
+                    GROUP_CONCAT( a.ID ) as attachments, 
                     COUNT(DISTINCT rp.UUID) as response_count,
                     COUNT(DISTINCT cc.UUID) as comment_count,
                     COUNT(DISTINCT rc.UUID) as reply_count
@@ -151,18 +151,20 @@ component accessors="true" {
         if(!row.keyExists('response_count') ){
             row['response_count']=0;
         }
-
         // Prepares attachments object (images: 0 | gifs: 1 | videos: 2)
         var attachments = row['attachments'];
         row['attachments'] = {};
-
+        attachments = application.dao.read(
+            sql="SELECT * FROM attachments WHERE ID IN (:attachments{list=true})",
+            params={attachments: attachments},
+            returnType="array"
+        );
         // Populates the images array
         row.attachments['images'] = attachments.filter((attachment) => { return attachment.type == 0; });
         // Populates the gifs array
         row.attachments['gifs'] = attachments.filter((attachment) => { return attachment.type == 1; });
         // Populates the videos array
         row.attachments['videos'] = attachments.filter((attachment) => { return attachment.type == 2; });
-
         // Splits the text wherever there is a mention
         var mentions = REMatch('(^|\s)(@\w+)(\s|\Z)', row['text']);
         // Prepares text for @mention parsing on the client
@@ -237,8 +239,15 @@ component accessors="true" {
             _parent_post.setTimestamp( now() );
             _parent_post.save();
         }
+
         
         var postID = application.dao.insert( table = 'timeline_feed', data = post );
+        if( data.keyExists('attachments') ) {
+            for(var attachment in data.attachments){
+                var attachmentID = application.dao.insert(table="attachments", data={ URL: attachment, type: 0 } );
+                application.dao.insert(table="timeline_feed_items_to_attachments", data={item_ID: postID, attachment_ID: attachmentID});
+            }
+        }
         var _userService = new services.userService();
         // Should return a single response in the post field
         return {
